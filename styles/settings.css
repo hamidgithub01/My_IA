@@ -1,0 +1,340 @@
+/* ==================================================
+   SETTINGS PAGE
+   ================================================== */
+
+.settings-page {
+    width: 100%;
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 32px 28px 60px;
+    gap: 34px;
+    box-sizing: border-box;
+}
+
+
+/* ==================================================
+   HERO
+   ================================================== */
+
+.settings-hero {
+    width: 100%;
+    padding: 30px 34px;
+    box-sizing: border-box;
+
+    border: 1px solid #e5e7eb;
+    border-radius: 20px;
+
+    background:
+        linear-gradient(135deg,
+            #ffffff 0%,
+            #f8fafc 100%);
+
+    box-shadow:
+        0 8px 24px rgba(15, 23, 42, 0.06);
+
+    gap: 16px;
+}
+
+
+.settings-hero-icon {
+    width: 58px;
+    height: 58px;
+
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 16px;
+
+    background: #f1f5f9;
+    color: #334155;
+}
+
+
+.settings-heading {
+    gap: 4px;
+}
+
+
+.settings-title {
+    font-size: 30px;
+    font-weight: 700;
+    line-height: 1.2;
+    color: #0f172a;
+}
+
+
+.settings-subtitle {
+    font-size: 15px;
+    line-height: 1.6;
+    color: #64748b;
+}
+
+
+/* ==================================================
+   SECTIONS
+   ================================================== */
+
+.settings-section {
+    width: 100%;
+    gap: 18px;
+}
+
+
+.settings-section-heading {
+    gap: 3px;
+    padding: 0 4px;
+}
+
+
+.settings-section-title {
+    font-size: 20px;
+    font-weight: 700;
+    color: #0f172a;
+}
+
+
+.settings-section-subtitle {
+    font-size: 14px;
+    color: #64748b;
+}
+
+
+/* ==================================================
+   SETTINGS GRID
+   ================================================== */
+
+.settings-grid {
+    width: 100%;
+
+    display: grid;
+    grid-template-columns:
+        repeat(2, minmax(0, 1fr));
+
+    gap: 20px;
+}
+
+
+.settings-grid-single {
+    grid-template-columns:
+        minmax(0, 1fr);
+}
+
+
+/* ==================================================
+   SETTING CARD
+   ================================================== */
+
+.setting-card {
+    width: 100%;
+    min-height: 230px;
+
+    padding: 24px;
+
+    box-sizing: border-box;
+
+    border: 1px solid #e2e8f0;
+    border-radius: 18px;
+
+    background: #ffffff;
+
+    box-shadow:
+        0 4px 16px rgba(15, 23, 42, 0.04);
+
+    gap: 24px;
+
+    transition:
+        transform 0.18s ease,
+        box-shadow 0.18s ease,
+        border-color 0.18s ease;
+}
+
+
+.setting-card:hover {
+    transform: translateY(-2px);
+
+    border-color: #cbd5e1;
+
+    box-shadow:
+        0 10px 26px rgba(15, 23, 42, 0.08);
+}
+
+
+/* ==================================================
+   CARD HEADER
+   ================================================== */
+
+.setting-card-top {
+    width: 100%;
+    align-items: flex-start;
+    gap: 16px;
+}
+
+
+.setting-card-icon {
+    width: 46px;
+    height: 46px;
+
+    flex-shrink: 0;
+
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 13px;
+
+    background: #f8fafc;
+    color: #475569;
+}
+
+
+.setting-card-content {
+    flex: 1;
+    gap: 5px;
+}
+
+
+.setting-label {
+    font-size: 17px;
+    font-weight: 650;
+    color: #0f172a;
+}
+
+
+.setting-description {
+    font-size: 13px;
+    line-height: 1.6;
+    color: #64748b;
+}
+
+
+/* ==================================================
+   INPUTS
+   ================================================== */
+
+.setting-control {
+    width: 100%;
+}
+
+
+.setting-control .q-field__control {
+    border-radius: 11px;
+}
+
+
+.setting-control .q-field__label {
+    color: #64748b;
+}
+
+
+/* ==================================================
+   ACTIONS
+   ================================================== */
+
+.settings-actions {
+    width: 100%;
+
+    justify-content: flex-end;
+    align-items: center;
+
+    padding-top: 4px;
+}
+
+
+.settings-save-button {
+    min-width: 170px;
+    min-height: 46px;
+
+    border-radius: 11px;
+
+    font-weight: 600;
+    letter-spacing: 0.1px;
+}
+
+
+/* ==================================================
+   RESPONSIVE
+   ================================================== */
+
+@media (max-width: 800px) {
+
+    .settings-page {
+        padding: 24px 18px 48px;
+        gap: 28px;
+    }
+
+
+    .settings-hero {
+        padding: 24px;
+        border-radius: 16px;
+    }
+
+
+    .settings-title {
+        font-size: 26px;
+    }
+
+
+    .settings-grid {
+        grid-template-columns:
+            minmax(0, 1fr);
+    }
+
+
+    .setting-card {
+        min-height: auto;
+    }
+
+
+    .settings-actions {
+        justify-content: stretch;
+    }
+
+
+    .settings-save-button {
+        width: 100%;
+    }
+}
+
+
+@media (max-width: 480px) {
+
+    .settings-page {
+        padding: 18px 12px 40px;
+    }
+
+
+    .settings-hero {
+        padding: 20px;
+    }
+
+
+    .settings-hero-icon {
+        width: 50px;
+        height: 50px;
+    }
+
+
+    .settings-title {
+        font-size: 23px;
+    }
+
+
+    .settings-subtitle {
+        font-size: 14px;
+    }
+
+
+    .setting-card {
+        padding: 20px;
+    }
+
+
+    .setting-card-top {
+        gap: 12px;
+    }
+
+
+    .setting-card-icon {
+        width: 42px;
+        height: 42px;
+    }
+}

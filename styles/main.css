@@ -1,0 +1,90 @@
+
+.app-header {
+    width: 100%;
+    background: white;
+    color: #1f2937;
+    border-bottom: 1px solid #e5e7eb;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+/* Top section */
+.app-logo {
+    width: 46px;
+    height: 46px;
+    object-fit: contain;
+    display: block;
+    transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.app-logo:hover {
+    transform: scale(1.08);
+    opacity: 0.9;
+}
+
+.header-top {
+    width: 100%;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 24px;
+}
+
+.app-title {
+    font-size: 22px;
+    font-weight: 700;
+    color: #111827;
+}
+
+.current-page {
+    font-size: 14px;
+    color: #6b7280;
+}
+
+/* Main navigation */
+
+.main-navigation {
+    width: 100%;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 0 16px 10px 16px;
+}
+
+.main-navigation .q-btn {
+    color: #374151;
+    border-radius: 8px;
+    min-height: 38px;
+    transition: all 0.2s ease;
+}
+
+.main-navigation .q-btn:hover {
+    background: #f3f4f6;
+    color: #111827;
+}
+
+.main-navigation .navigation-active {
+    background: #e5e7eb;
+    color: #111827;
+    font-weight: 600;
+}
+
+/* Section navigation */
+
+.section-navigation {
+    width: 100%;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 0 16px 10px 16px;
+    border-top: 1px solid #f3f4f6;
+}
+
+.section-navigation .q-btn {
+    color: #6b7280;
+    border-radius: 6px;
+    min-height: 32px;
+}
+
+.section-navigation .q-btn:hover {
+    background: #f3f4f6;
+    color: #111827;
+}

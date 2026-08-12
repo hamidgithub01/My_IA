@@ -1,0 +1,49 @@
+/* ==================================================
+SELECT FIELDS
+================================================== */
+
+.days-select-input {
+    width: 400px !important;
+    max-width: 100%;
+}
+
+.days-select-input .q-field__control {
+    width: 400px !important;
+    max-width: 100%;
+}
+
+.days-select-input .q-field__native {
+    width: 100% !important;
+    max-width: 100% !important;
+}
+
+.days-select-input .q-field__native>span {
+    display: block;
+    width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: clip;
+}
+
+.days-select-input .q-field__input {
+    width: 100% !important;
+    max-width: 100% !important;
+}
+
+/* ==================================================
+SELECT MENU OPTIONS
+================================================== */
+
+.q-menu .q-item {
+    min-width: 350px;
+}
+
+.q-menu .q-item__section {
+    white-space: nowrap;
+}
+
+.q-menu .q-item__label {
+    white-space: nowrap;
+    overflow: visible;
+    text-overflow: clip;
+}

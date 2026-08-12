@@ -1,0 +1,607 @@
+/* ==================================================
+   REPORTS PAGE
+   ================================================== */
+
+.reports-page {
+    width: 100%;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 32px;
+    gap: 28px;
+    box-sizing: border-box;
+}
+
+/* ==================================================
+   HERO
+   ================================================== */
+
+.reports-hero {
+    width: 100%;
+    padding: 30px 32px;
+    border-radius: 18px;
+    background: linear-gradient(135deg,
+            #ffffff 0%,
+            #f8fafc 100%);
+    border: 1px solid #e5e7eb;
+    box-shadow: 0 6px 20px rgba(15, 23, 42, 0.06);
+    align-items: center;
+    justify-content: space-between;
+    box-sizing: border-box;
+}
+
+.reports-hero-content {
+    gap: 8px;
+}
+
+.reports-title {
+    font-size: 30px;
+    font-weight: 700;
+    color: #111827;
+}
+
+.reports-subtitle {
+    font-size: 15px;
+    color: #6b7280;
+    line-height: 1.6;
+    max-width: 720px;
+}
+
+.reports-hero-meta {
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-width: 150px;
+}
+
+.reports-hero-icon {
+    color: #4f46e5;
+}
+
+.reports-hero-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #6b7280;
+}
+
+/* ==================================================
+   KPI METRICS
+   ================================================== */
+
+.reports-metrics-grid {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 20px;
+}
+
+.report-metric-card {
+    min-height: 150px;
+    padding: 22px;
+    border-radius: 16px;
+    border: 1px solid #e5e7eb;
+    background: #ffffff;
+    box-shadow: 0 4px 16px rgba(15, 23, 42, 0.05);
+    box-sizing: border-box;
+    gap: 12px;
+}
+
+.report-metric-top {
+    width: 100%;
+    justify-content: space-between;
+    align-items: flex-start;
+}
+
+.report-metric-content {
+    gap: 5px;
+}
+
+.report-metric-label {
+    font-size: 14px;
+    font-weight: 600;
+    color: #6b7280;
+}
+
+.report-metric-value {
+    font-size: 27px;
+    font-weight: 700;
+    color: #111827;
+    line-height: 1.2;
+}
+
+.report-metric-caption {
+    font-size: 12px;
+    color: #9ca3af;
+}
+
+.report-metric-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #f3f4f6;
+}
+
+.report-metric-icon .q-icon {
+    font-size: 23px;
+}
+
+.report-metric-income {
+    border-top: 3px solid #16a34a;
+}
+
+.report-metric-income .report-metric-icon {
+    color: #16a34a;
+    background: #ecfdf3;
+}
+
+.report-metric-expenses {
+    border-top: 3px solid #dc2626;
+}
+
+.report-metric-expenses .report-metric-icon {
+    color: #dc2626;
+    background: #fef2f2;
+}
+
+.report-metric-positive {
+    border-top: 3px solid #2563eb;
+}
+
+.report-metric-positive .report-metric-icon {
+    color: #2563eb;
+    background: #eff6ff;
+}
+
+.report-metric-negative {
+    border-top: 3px solid #dc2626;
+}
+
+.report-metric-negative .report-metric-icon {
+    color: #dc2626;
+    background: #fef2f2;
+}
+
+.report-metric-savings {
+    border-top: 3px solid #7c3aed;
+}
+
+.report-metric-savings .report-metric-icon {
+    color: #7c3aed;
+    background: #f5f3ff;
+}
+
+/* ==================================================
+   GENERAL SECTION
+   ================================================== */
+
+.reports-section-card {
+    width: 100%;
+    padding: 26px;
+    border-radius: 16px;
+    border: 1px solid #e5e7eb;
+    background: #ffffff;
+    box-shadow: 0 4px 16px rgba(15, 23, 42, 0.05);
+    box-sizing: border-box;
+}
+
+.reports-section-heading {
+    gap: 5px;
+    margin-bottom: 22px;
+}
+
+.reports-section-title {
+    font-size: 19px;
+    font-weight: 700;
+    color: #111827;
+}
+
+.reports-section-subtitle {
+    font-size: 13px;
+    color: #6b7280;
+    line-height: 1.5;
+}
+
+/* ==================================================
+   FINANCIAL FLOW
+   ================================================== */
+
+.financial-flow {
+    width: 100%;
+    align-items: center;
+    gap: 24px;
+}
+
+.financial-flow-item {
+    min-width: 110px;
+    gap: 4px;
+}
+
+.financial-flow-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #6b7280;
+}
+
+.financial-flow-value {
+    font-size: 20px;
+    font-weight: 700;
+    color: #111827;
+}
+
+.financial-flow-track {
+    flex: 1;
+    min-width: 100px;
+}
+
+.financial-flow-bar {
+    width: 100%;
+    height: 18px;
+    display: flex;
+    overflow: hidden;
+    border-radius: 999px;
+    background: #f3f4f6;
+}
+
+.financial-flow-income {
+    height: 100%;
+    background: #16a34a;
+    transition: width 0.3s ease;
+}
+
+.financial-flow-expenses {
+    height: 100%;
+    background: #dc2626;
+    transition: width 0.3s ease;
+}
+
+/* ==================================================
+   ANALYSIS GRID
+   ================================================== */
+
+.reports-analysis-grid {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px;
+}
+
+.report-analysis-card {
+    min-width: 0;
+}
+
+/* ==================================================
+   EMPTY STATE
+   ================================================== */
+
+.reports-empty-state {
+    min-height: 150px;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    gap: 10px;
+    color: #9ca3af;
+}
+
+.reports-empty-title {
+    font-size: 14px;
+    color: #6b7280;
+}
+
+/* ==================================================
+   EXPENSE BREAKDOWN
+   ================================================== */
+
+.expense-breakdown-item {
+    width: 100%;
+    gap: 8px;
+    margin-bottom: 18px;
+}
+
+.expense-breakdown-item:last-child {
+    margin-bottom: 0;
+}
+
+.expense-breakdown-header {
+    width: 100%;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.expense-breakdown-category {
+    font-size: 14px;
+    font-weight: 600;
+    color: #374151;
+}
+
+.expense-breakdown-amount {
+    font-size: 13px;
+    font-weight: 600;
+    color: #6b7280;
+}
+
+.expense-breakdown-track {
+    width: 100%;
+    height: 9px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: #f3f4f6;
+}
+
+.expense-breakdown-progress {
+    height: 100%;
+    border-radius: 999px;
+    background: #4f46e5;
+    transition: width 0.3s ease;
+}
+
+/* ==================================================
+   MONTHLY SPENDING
+   ================================================== */
+
+.monthly-expense-item {
+    width: 100%;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.monthly-expense-item:last-child {
+    margin-bottom: 0;
+}
+
+.monthly-expense-header {
+    width: 100%;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.monthly-expense-month {
+    font-size: 14px;
+    font-weight: 600;
+    color: #374151;
+}
+
+.monthly-expense-value {
+    font-size: 13px;
+    font-weight: 600;
+    color: #6b7280;
+}
+
+.monthly-expense-track {
+    width: 100%;
+    height: 9px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: #f3f4f6;
+}
+
+.monthly-expense-progress {
+    height: 100%;
+    border-radius: 999px;
+    background: #2563eb;
+    transition: width 0.3s ease;
+}
+
+/* ==================================================
+   BUDGET SUMMARY
+   ================================================== */
+
+.budget-summary-grid {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 14px;
+    margin-bottom: 24px;
+}
+
+.budget-summary-item {
+    padding: 17px;
+    border-radius: 12px;
+    background: #f8fafc;
+    border: 1px solid #eef2f7;
+    gap: 5px;
+}
+
+.budget-summary-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #6b7280;
+}
+
+.budget-summary-value {
+    font-size: 19px;
+    font-weight: 700;
+    color: #111827;
+}
+
+/* ==================================================
+   BUDGET STATUS
+   ================================================== */
+
+.budget-status-list {
+    width: 100%;
+    gap: 10px;
+}
+
+.budget-status-row {
+    width: 100%;
+    padding: 15px 16px;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    align-items: center;
+    justify-content: space-between;
+    box-sizing: border-box;
+}
+
+.budget-status-main {
+    gap: 3px;
+}
+
+.budget-status-category {
+    font-size: 14px;
+    font-weight: 700;
+    color: #374151;
+}
+
+.budget-status-month {
+    font-size: 12px;
+    color: #9ca3af;
+}
+
+.budget-status-numbers {
+    align-items: flex-end;
+    gap: 6px;
+}
+
+.budget-status-amount {
+    font-size: 13px;
+    font-weight: 600;
+    color: #374151;
+}
+
+.budget-status-badge {
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+/* Budget status colors */
+
+.budget-status-no-spending {
+    color: #15803d;
+    background: #f0fdf4;
+}
+
+.budget-status-on-track {
+    color: #15803d;
+    background: #f0fdf4;
+}
+
+.budget-status-near-limit {
+    color: #b45309;
+    background: #fffbeb;
+}
+
+.budget-status-over-budget {
+    color: #b91c1c;
+    background: #fef2f2;
+}
+
+/* ==================================================
+   FOOTER
+   ================================================== */
+
+.reports-footer {
+    width: 100%;
+    padding: 18px 4px 4px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    border-top: 1px solid #e5e7eb;
+}
+
+.reports-footer-brand {
+    font-size: 13px;
+    font-weight: 700;
+    color: #374151;
+}
+
+.reports-footer-text {
+    font-size: 12px;
+    color: #9ca3af;
+}
+
+/* ==================================================
+   RESPONSIVE
+   ================================================== */
+
+@media (max-width: 1100px) {
+
+    .reports-metrics-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .budget-summary-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 800px) {
+
+    .reports-page {
+        padding: 20px;
+    }
+
+    .reports-hero {
+        padding: 24px;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 20px;
+    }
+
+    .reports-hero-meta {
+        align-items: flex-start;
+    }
+
+    .reports-analysis-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .financial-flow {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 14px;
+    }
+
+    .financial-flow-track {
+        width: 100%;
+    }
+
+    .financial-flow-item {
+        min-width: 0;
+    }
+}
+
+@media (max-width: 600px) {
+
+    .reports-page {
+        padding: 14px;
+        gap: 18px;
+    }
+
+    .reports-metrics-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .budget-summary-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .reports-section-card {
+        padding: 20px;
+    }
+
+    .reports-title {
+        font-size: 25px;
+    }
+
+    .reports-subtitle {
+        font-size: 14px;
+    }
+
+    .budget-status-row {
+        align-items: flex-start;
+        gap: 12px;
+    }
+
+    .budget-status-numbers {
+        align-items: flex-end;
+    }
+
+    .reports-footer {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+}

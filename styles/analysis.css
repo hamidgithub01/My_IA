@@ -1,0 +1,165 @@
+
+.analysis-page {
+    width: 100%;
+    padding: 24px;
+    gap: 24px;
+}
+
+.analysis-header {
+    gap: 4px;
+}
+
+.analysis-title {
+    font-size: 30px;
+    font-weight: 700;
+}
+
+.analysis-subtitle {
+    color: #6b7280;
+    font-size: 15px;
+}
+
+.analysis-section-title {
+    font-size: 22px;
+    font-weight: 700;
+    margin-top: 8px;
+}
+
+.analysis-cards {
+    width: 100%;
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.analysis-card {
+    flex: 1;
+    min-width: 220px;
+    padding: 20px;
+    border-radius: 14px;
+}
+
+.analysis-card-label {
+    color: #6b7280;
+    font-size: 14px;
+}
+
+.analysis-card-value {
+    font-size: 28px;
+    font-weight: 700;
+    margin-top: 6px;
+}
+
+.analysis-card-detail {
+    color: #6b7280;
+    font-size: 13px;
+    margin-top: 4px;
+}
+
+.analysis-positive {
+    color: #16a34a;
+}
+
+.analysis-negative {
+    color: #dc2626;
+}
+
+.analysis-neutral {
+    color: #6b7280;
+}
+
+.analysis-charts-row {
+    width: 100%;
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+}
+
+.analysis-chart-card {
+    flex: 1;
+    min-width: 400px;
+    padding: 20px;
+    border-radius: 14px;
+}
+
+.analysis-full-width {
+    width: 100%;
+}
+
+.analysis-chart-title {
+    font-size: 20px;
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+
+.analysis-chart {
+    width: 100%;
+    height: 350px;
+}
+
+.analysis-neutral-text {
+    color: #6b7280;
+}
+
+.budget-analysis-card {
+    width: 100%;
+    padding: 20px;
+    border-radius: 14px;
+}
+
+.budget-analysis-item {
+    width: 100%;
+    gap: 8px;
+    padding: 12px 0;
+}
+
+.budget-analysis-header {
+    width: 100%;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.budget-analysis-category {
+    font-size: 17px;
+    font-weight: 600;
+}
+
+.budget-analysis-status {
+    font-size: 13px;
+}
+
+.budget-analysis-amounts {
+    width: 100%;
+    align-items: center;
+    justify-content: space-between;
+    color: #6b7280;
+    font-size: 13px;
+}
+
+.budget-analysis-progress {
+    width: 100%;
+}
+
+@media (max-width: 900px) {
+
+    .analysis-charts-row {
+        flex-direction: column;
+    }
+
+    .analysis-chart-card {
+        width: 100%;
+        min-width: 0;
+    }
+}
+
+@media (max-width: 600px) {
+
+    .analysis-page {
+        padding: 16px;
+    }
+
+    .analysis-card {
+        min-width: 100%;
+    }
+}
+
