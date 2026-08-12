@@ -1,0 +1,226 @@
+
+/* ==========================================================
+   PREDICTION PAGE
+   ========================================================== */
+
+.prediction-page {
+    width: 100%;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 32px;
+    gap: 24px;
+    box-sizing: border-box;
+}
+
+/* ==========================================================
+   HEADER
+   ========================================================== */
+
+.prediction-header {
+    width: 100%;
+    align-items: flex-end;
+    justify-content: space-between;
+    margin-bottom: 4px;
+}
+
+.prediction-heading {
+    gap: 6px;
+}
+
+.prediction-title {
+    font-size: 30px;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+.prediction-subtitle {
+    font-size: 15px;
+    color: #6b7280;
+    max-width: 720px;
+    line-height: 1.6;
+}
+
+/* ==========================================================
+   INPUT CARD
+   ========================================================== */
+
+.prediction-input-card {
+    width: 100%;
+    padding: 28px;
+    border-radius: 16px;
+    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.06);
+    box-sizing: border-box;
+}
+
+.prediction-section-title {
+    font-size: 20px;
+    font-weight: 700;
+    line-height: 1.3;
+}
+
+.prediction-section-subtitle {
+    margin-top: 4px;
+    margin-bottom: 20px;
+    font-size: 14px;
+    color: #6b7280;
+    line-height: 1.5;
+}
+
+.prediction-input-row {
+    width: 100%;
+    align-items: flex-end;
+    gap: 16px;
+}
+
+.prediction-date-input {
+    min-width: 260px;
+}
+
+.prediction-button {
+    min-height: 44px;
+    padding: 0 22px;
+    border-radius: 10px;
+    font-weight: 600;
+}
+
+/* ==========================================================
+   RESULT CONTAINER
+   ========================================================== */
+
+.prediction-result-container {
+    width: 100%;
+    gap: 24px;
+}
+
+/* ==========================================================
+   MAIN RESULT
+   ========================================================== */
+
+.prediction-result-card {
+    width: 100%;
+    padding: 36px;
+    border-radius: 18px;
+    box-sizing: border-box;
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.07);
+}
+
+.prediction-result-content {
+    width: 100%;
+    align-items: center;
+    text-align: center;
+    gap: 8px;
+}
+
+.prediction-result-icon {
+    margin-bottom: 6px;
+}
+
+.prediction-result-label {
+    font-size: 15px;
+    font-weight: 600;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.7px;
+}
+
+.prediction-result-value {
+    margin-top: 2px;
+    font-size: 48px;
+    font-weight: 800;
+    line-height: 1.1;
+}
+
+.prediction-result-date {
+    margin-top: 4px;
+    font-size: 14px;
+    color: #6b7280;
+}
+
+/* ==========================================================
+   FEATURES
+   ========================================================== */
+
+.prediction-features-card {
+    width: 100%;
+    padding: 28px;
+    border-radius: 16px;
+    box-sizing: border-box;
+    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.06);
+}
+
+.prediction-features-table {
+    width: 100%;
+    margin-top: 4px;
+}
+
+.prediction-features-table .q-table th {
+    font-weight: 700;
+    font-size: 13px;
+}
+
+.prediction-features-table .q-table td {
+    font-size: 14px;
+}
+
+/* ==========================================================
+   ERROR
+   ========================================================== */
+
+.prediction-error {
+    width: 100%;
+    padding: 16px 20px;
+    border-radius: 10px;
+    box-sizing: border-box;
+    font-weight: 600;
+    text-align: center;
+    background: #fef2f2;
+    color: #b91c1c;
+}
+
+/* ==========================================================
+   RESPONSIVE
+   ========================================================== */
+
+@media (max-width: 768px) {
+
+    .prediction-page {
+        padding: 20px 16px;
+        gap: 18px;
+    }
+
+    .prediction-title {
+        font-size: 25px;
+    }
+
+    .prediction-subtitle {
+        font-size: 14px;
+    }
+
+    .prediction-input-card,
+    .prediction-result-card,
+    .prediction-features-card {
+        padding: 20px;
+    }
+
+    .prediction-input-row {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .prediction-date-input {
+        width: 100%;
+        min-width: 0;
+    }
+
+    .prediction-button {
+        width: 100%;
+    }
+
+    .prediction-result-value {
+        font-size: 38px;
+    }
+
+    .prediction-features-table {
+        overflow-x: auto;
+    }
+}

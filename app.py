@@ -86,7 +86,11 @@ from pages.settings import settings_page
 
 from pages.reports.reports import reports_page
 
+# ==================================================
+# PREDICTION
+# ==================================================
 
+from pages.predictions.prediction import prediction_page
 
 
 ui.run(
