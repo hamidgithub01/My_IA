@@ -1,16 +1,49 @@
+def normalize_text(value):
+    """
+    Safely normalize a value into lowercase text.
+
+    None and empty values become an empty string.
+    """
+
+    return str(value or '').strip().lower()
+
 
 def create_contextual_features(row):
     """
     Create contextual features from one prepared daily row.
 
-    Contextual features describe the surrounding circumstances
-    of the day without directly encoding the date itself.
+    Missing contextual information is treated as unknown
+    rather than causing an exception.
     """
+
+    day_type = normalize_text(
+        row.get('Day_Type')
+    )
+
+    work_status = normalize_text(
+        row.get('Work_Status')
+    )
+
+    health_impact = normalize_text(
+        row.get('Health_Impact')
+    )
+
+    travel = normalize_text(
+        row.get('Travel')
+    )
+
+    special_event = normalize_text(
+        row.get('Special_Event')
+    )
+
+    location = normalize_text(
+        row.get('Location')
+    )
 
     return {
         'Is_Workday':
             int(
-                row.get('Day_Type', '').strip().lower()
+                day_type
                 in {
                     'workday',
                     'working day',
@@ -19,19 +52,19 @@ def create_contextual_features(row):
 
         'Is_Holiday':
             int(
-                row.get('Day_Type', '').strip().lower()
+                day_type
                 == 'holiday'
             ),
 
         'Is_Weekend_Day':
             int(
-                row.get('Day_Type', '').strip().lower()
+                day_type
                 == 'weekend'
             ),
 
         'Is_Working':
             int(
-                row.get('Work_Status', '').strip().lower()
+                work_status
                 in {
                     'working',
                     'work',
@@ -40,13 +73,13 @@ def create_contextual_features(row):
 
         'Is_Off':
             int(
-                row.get('Work_Status', '').strip().lower()
+                work_status
                 == 'off'
             ),
 
         'Is_Leave':
             int(
-                row.get('Work_Status', '').strip().lower()
+                work_status
                 in {
                     'leave',
                     'vacation',
@@ -55,7 +88,7 @@ def create_contextual_features(row):
 
         'Has_Health_Impact':
             int(
-                row.get('Health_Impact', '').strip().lower()
+                health_impact
                 not in {
                     '',
                     'none',
@@ -66,7 +99,7 @@ def create_contextual_features(row):
 
         'Has_Travel':
             int(
-                row.get('Travel', '').strip().lower()
+                travel
                 in {
                     'yes',
                     'true',
@@ -77,18 +110,14 @@ def create_contextual_features(row):
         'Has_Special_Event':
             int(
                 bool(
-                    str(
-                        row.get('Special_Event') or ''
-                    ).strip()
+                    special_event
                 )
             ),
 
         'Has_Location':
             int(
                 bool(
-                    str(
-                        row.get('Location') or ''
-                    ).strip()
+                    location
                 )
             ),
     }

@@ -1,5 +1,5 @@
 from ml.features.build import build_feature_dataset
-from ml.training.train import train_model
+from ml.training.load import load_latest_model
 
 
 # ==========================================================
@@ -8,10 +8,10 @@ from ml.training.train import train_model
 
 def predict_expense_for_date(target_date):
     """
-    Predict the total expense for a specific date.
+    Predict the total expense for a specific date
+    using the latest saved model.
 
-    The prediction is based on the engineered features
-    already produced by the feature engineering pipeline.
+    The prediction does not retrain the model.
 
     Args:
         target_date:
@@ -21,8 +21,13 @@ def predict_expense_for_date(target_date):
         Dictionary containing:
             - Date
             - Predicted_Expense
+            - Model_History_ID
             - Features
     """
+
+    # ------------------------------------------------------
+    # Load feature data
+    # ------------------------------------------------------
 
     data = build_feature_dataset()
 
@@ -49,20 +54,52 @@ def predict_expense_for_date(target_date):
         )
 
     # ------------------------------------------------------
-    # Train / load model
+    # Load latest saved model
     # ------------------------------------------------------
 
-    training_result = train_model()
+    model_result = load_latest_model()
 
-    model = training_result['model']
-    feature_names = training_result['feature_names']
+    if model_result is None:
+        raise ValueError(
+            'No trained model is available.'
+        )
+
+    model = model_result['model']
+
+    feature_names = (
+        model_result['feature_names']
+    )
+
+    model_history_id = (
+        model_result['model_history_id']
+    )
+
+    # ------------------------------------------------------
+    # Validate feature structure
+    # ------------------------------------------------------
+
+    missing_features = [
+        feature
+        for feature in feature_names
+        if feature not in target_row
+    ]
+
+    if missing_features:
+
+        raise ValueError(
+            'Missing features for prediction: '
+            + ', '.join(missing_features)
+        )
 
     # ------------------------------------------------------
     # Build feature vector
     # ------------------------------------------------------
 
     feature_vector = [
-        float(target_row[feature])
+        float(
+            target_row[feature]
+            or 0.0
+        )
         for feature in feature_names
     ]
 
@@ -80,7 +117,7 @@ def predict_expense_for_date(target_date):
 
     predicted_expense = max(
         0.0,
-        float(predicted_expense)
+        float(predicted_expense),
     )
 
     # ------------------------------------------------------
@@ -88,10 +125,18 @@ def predict_expense_for_date(target_date):
     # ------------------------------------------------------
 
     return {
-        'Date': target_date,
-        'Predicted_Expense': predicted_expense,
+        'Date':
+            target_date,
+
+        'Predicted_Expense':
+            predicted_expense,
+
+        'Model_History_ID':
+            model_history_id,
+
         'Features': {
-            feature: target_row[feature]
+            feature:
+                target_row[feature]
             for feature in feature_names
         },
     }

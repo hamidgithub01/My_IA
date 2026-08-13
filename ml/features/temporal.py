@@ -1,9 +1,10 @@
 from datetime import date, datetime
+import calendar
 
 
 def create_temporal_features(row):
     """
-    Create temporal features from the daily date.
+    Create calendar-based temporal features.
     """
 
     value = row.get('Date')
@@ -29,8 +30,14 @@ def create_temporal_features(row):
 
     weekday = current_date.weekday()
 
+    days_in_month = calendar.monthrange(
+        current_date.year,
+        current_date.month,
+    )[1]
+
     return {
-        'Day_of_Week': weekday,
+        'Day_of_Week':
+            weekday,
 
         'Day_of_Month':
             current_date.day,
@@ -46,4 +53,20 @@ def create_temporal_features(row):
 
         'Is_Month_Start':
             int(current_date.day == 1),
+
+        'Is_Month_End':
+            int(
+                current_date.day
+                == days_in_month
+            ),
+
+        'Week_of_Month':
+            ((current_date.day - 1) // 7) + 1,
+
+        'Days_From_Month_Start':
+            current_date.day - 1,
+
+        'Days_To_Month_End':
+            days_in_month
+            - current_date.day,
     }

@@ -1,5 +1,6 @@
 import json
 from datetime import datetime
+import math
 
 from database.connection import get_connection
 
@@ -10,7 +11,7 @@ from database.connection import get_connection
 
 def save_model_history(
     training_result,
-    evaluation_result,
+    evaluation_result=None,
     reused_previous_state=False,
 ):
     """
@@ -18,14 +19,20 @@ def save_model_history(
     into the model_history table.
 
     Previous model history is never deleted.
+
     Each training operation creates a new record.
+
+    Evaluation metrics are stored only when a valid
+    chronological evaluation is available.
     """
 
     model = training_result['model']
     feature_names = training_result['feature_names']
     training_rows = training_result['training_rows']
 
-    metrics = evaluation_result['metrics']
+    # ------------------------------------------------------
+    # Model parameters
+    # ------------------------------------------------------
 
     coefficients = [
         float(value)
@@ -56,13 +63,61 @@ def save_model_history(
     # Model preprocessing statistics
     #
     # LinearRegression currently does not perform
-    # feature scaling, therefore these values are
-    # stored as empty JSON objects.
+    # feature scaling.
     # ------------------------------------------------------
 
     feature_means_json = json.dumps({})
 
     feature_scales_json = json.dumps({})
+
+    # ------------------------------------------------------
+    # Evaluation metrics
+    # ------------------------------------------------------
+
+    mae = None
+    rmse = None
+    r_squared = None
+
+    if evaluation_result is not None:
+
+        metrics = evaluation_result.get(
+            'metrics',
+            {}
+        )
+
+        mae = metrics.get(
+            'mae'
+        )
+
+        rmse = metrics.get(
+            'rmse'
+        )
+
+        r_squared = metrics.get(
+            'r_squared'
+        )
+
+        # --------------------------------------------------
+        # Never store NaN as a valid metric.
+        # --------------------------------------------------
+
+        if (
+            mae is not None
+            and not math.isfinite(float(mae))
+        ):
+            mae = None
+
+        if (
+            rmse is not None
+            and not math.isfinite(float(rmse))
+        ):
+            rmse = None
+
+        if (
+            r_squared is not None
+            and not math.isfinite(float(r_squared))
+        ):
+            r_squared = None
 
     # ------------------------------------------------------
     # Database
@@ -114,10 +169,12 @@ def save_model_history(
                 intercept,
                 feature_means_json,
                 feature_scales_json,
-                metrics['mae'],
-                metrics['rmse'],
-                metrics['r_squared'],
-                bool(reused_previous_state),
+                mae,
+                rmse,
+                r_squared,
+                bool(
+                    reused_previous_state
+                ),
             ),
         )
 

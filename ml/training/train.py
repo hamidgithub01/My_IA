@@ -1,44 +1,33 @@
 from sklearn.linear_model import LinearRegression
 
-from ml.features.build import build_feature_dataset
+from ml.features.build import (
+    build_training_dataset,
+)
 
-
-# ==========================================================
-# MODEL TRAINING
-# ==========================================================
 
 def train_model():
     """
-    Train a Linear Regression model using the engineered
-    daily financial features.
+    Train the financial forecasting model.
 
-    Target:
+    The model learns:
+
+        Historical information
+                ↓
+        Current/target day
+                ↓
         Expense_Total
 
-    Returns:
-        {
-            'model': trained model,
-            'feature_names': list of feature names,
-            'training_rows': number of rows,
-        }
+    The target expense is NEVER used as an input feature.
     """
 
-    data = build_feature_dataset()
+    data = build_training_dataset()
 
     if not data:
         raise ValueError(
-            'No feature data available for training.'
+            'Not enough historical data for training.'
         )
 
-    # ------------------------------------------------------
-    # Target
-    # ------------------------------------------------------
-
-    target_name = 'Expense_Total'
-
-    # ------------------------------------------------------
-    # Features
-    # ------------------------------------------------------
+    target_name = 'Target_Expense_Total'
 
     excluded_features = {
         'Date',
@@ -56,39 +45,41 @@ def train_model():
             'No features available for training.'
         )
 
-    # ------------------------------------------------------
-    # Build X and y
-    # ------------------------------------------------------
-
     X = []
-
     y = []
 
     for row in data:
 
         X.append([
-            float(row[feature])
+            float(
+                row.get(feature, 0.0)
+                or 0.0
+            )
             for feature in feature_names
         ])
 
         y.append(
-            float(row[target_name])
+            float(
+                row[target_name]
+            )
         )
 
-    # ------------------------------------------------------
-    # Train model
-    # ------------------------------------------------------
+    if len(X) < 2:
+        raise ValueError(
+            'At least two historical records are required '
+            'for training.'
+        )
 
     model = LinearRegression()
 
-    model.fit(X, y)
-
-    # ------------------------------------------------------
-    # Result
-    # ------------------------------------------------------
+    model.fit(
+        X,
+        y,
+    )
 
     return {
         'model': model,
         'feature_names': feature_names,
         'training_rows': len(data),
+        'target_name': target_name,
     }
