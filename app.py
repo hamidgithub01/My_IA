@@ -93,6 +93,25 @@ from pages.reports.reports import reports_page
 from pages.predictions.prediction import prediction_page
 
 
+# ==================================================
+# HEALTH
+# ==================================================
+
+from pages.health.health_records import health_records_page
+from pages.health.add_health import add_health_page
+from pages.health.health_details import health_details_page
+from pages.health.edit_health import edit_health_page
+
+# ==================================================
+# SLEEP
+# ==================================================
+
+from pages.sleep.sleep_records import sleep_records_page
+from pages.sleep.add_sleep import add_sleep_page
+from pages.sleep.sleep_details import sleep_details_page
+from pages.sleep.edit_sleep import edit_sleep_page
+
+
 ui.run(
     host='127.0.0.1',
     port=8080,

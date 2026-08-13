@@ -1,0 +1,870 @@
+
+/* ==========================================================
+   SLEEP — VISUAL IDENTITY
+   ========================================================== */
+
+.sleep-page-header,
+.sleep-form-header,
+.sleep-details-header {
+    width: 100%;
+    max-width: 1400px;
+    margin: 0 auto 28px auto;
+}
+
+.sleep-page-header,
+.sleep-details-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+}
+
+.sleep-header-text,
+.sleep-details-title-group {
+    gap: 5px;
+}
+
+.sleep-page-title {
+    font-size: 32px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+}
+
+.sleep-page-subtitle {
+    color: #7b8494;
+    font-size: 15px;
+}
+
+.sleep-add-button,
+.sleep-empty-button,
+.sleep-save-button,
+.sleep-edit-button {
+    border-radius: 12px;
+    padding: 9px 18px;
+}
+
+
+/* ==========================================================
+   SLEEP RECORDS
+   ========================================================== */
+
+.sleep-records-list {
+    width: 100%;
+    max-width: 1400px;
+    margin: 0 auto;
+    gap: 18px;
+}
+
+.sleep-record-card {
+    width: 100%;
+    padding: 24px;
+    border-radius: 20px;
+    border: 1px solid #e8ebf1;
+    box-shadow: 0 5px 18px rgba(31, 41, 55, 0.05);
+    transition:
+        transform 0.18s ease,
+        box-shadow 0.18s ease,
+        border-color 0.18s ease;
+}
+
+.sleep-record-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 28px rgba(31, 41, 55, 0.09);
+    border-color: #d9deea;
+}
+
+.sleep-record-top {
+    width: 100%;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.sleep-record-date {
+    gap: 2px;
+}
+
+.sleep-record-date-value {
+    font-size: 18px;
+    font-weight: 700;
+}
+
+.sleep-record-type {
+    color: #8992a2;
+    font-size: 13px;
+}
+
+.sleep-quality-badge {
+    padding: 6px 11px;
+    border-radius: 999px;
+    background: #f1efff;
+    color: #6256b8;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+
+/* ==========================================================
+   MAIN SLEEP INFORMATION
+   ========================================================== */
+
+.sleep-main-info {
+    width: 100%;
+    margin-top: 22px;
+    padding: 20px;
+    border-radius: 16px;
+    background: #f8f9fc;
+    align-items: center;
+    gap: 40px;
+}
+
+.sleep-time-block {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 13px;
+    min-width: 270px;
+}
+
+.sleep-time-block>.q-icon {
+    color: #7067c9;
+}
+
+.sleep-time-values {
+    gap: 2px;
+}
+
+.sleep-time {
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: -0.3px;
+}
+
+.sleep-duration {
+    color: #7d8796;
+    font-size: 13px;
+}
+
+.sleep-condition-block {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.sleep-condition {
+    padding: 7px 11px;
+    border-radius: 10px;
+    background: white;
+    border: 1px solid #e9ecf2;
+    color: #697384;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+}
+
+.sleep-condition .q-icon {
+    font-size: 17px;
+    color: #8179c9;
+}
+
+
+/* ==========================================================
+   ACTIONS
+   ========================================================== */
+
+.sleep-record-actions {
+    width: 100%;
+    margin-top: 18px;
+    justify-content: flex-end;
+    gap: 4px;
+}
+
+.sleep-action-button {
+    border-radius: 9px;
+}
+
+.sleep-delete-button {
+    color: #c45c69 !important;
+}
+
+.sleep-delete-confirm {
+    background: #c45c69;
+}
+
+
+/* ==========================================================
+   EMPTY STATE
+   ========================================================== */
+
+.sleep-empty-card {
+    width: 100%;
+    max-width: 700px;
+    margin: 70px auto;
+    padding: 55px 35px;
+    text-align: center;
+    align-items: center;
+    border-radius: 24px;
+    border: 1px solid #e9ebf2;
+    box-shadow: 0 12px 35px rgba(31, 41, 55, 0.06);
+}
+
+.sleep-empty-icon {
+    color: #8179c9;
+    margin-bottom: 10px;
+}
+
+.sleep-empty-title {
+    font-size: 23px;
+    font-weight: 700;
+}
+
+.sleep-empty-text {
+    max-width: 480px;
+    margin: 8px auto 20px auto;
+    color: #7c8493;
+    line-height: 1.7;
+}
+
+
+/* ==========================================================
+   DETAILS
+   ========================================================== */
+
+.sleep-details-header {
+    margin-bottom: 22px;
+}
+
+.sleep-details-date {
+    color: #858e9d;
+    font-size: 14px;
+}
+
+.sleep-details-actions {
+    align-items: center;
+    gap: 5px;
+}
+
+.sleep-overview-card {
+    width: 100%;
+    max-width: 1400px;
+    margin: 0 auto 20px auto;
+    padding: 28px;
+    border-radius: 22px;
+    border: 1px solid #e5e7ef;
+    background:
+        linear-gradient(135deg,
+            #f8f7ff 0%,
+            #ffffff 55%,
+            #f7f9fc 100%);
+    box-shadow: 0 8px 28px rgba(31, 41, 55, 0.06);
+}
+
+.sleep-overview-main {
+    align-items: center;
+    gap: 20px;
+}
+
+.sleep-overview-icon {
+    width: 82px;
+    height: 82px;
+    border-radius: 22px;
+    align-items: center;
+    justify-content: center;
+    background: #ece9ff;
+    color: #6256b8;
+}
+
+.sleep-overview-text {
+    gap: 2px;
+}
+
+.sleep-overview-type {
+    color: #737c8b;
+    font-size: 14px;
+}
+
+.sleep-overview-time {
+    font-size: 27px;
+    font-weight: 700;
+    letter-spacing: -0.6px;
+}
+
+.sleep-overview-duration {
+    color: #7b8493;
+    font-size: 14px;
+}
+
+.sleep-quality-display {
+    margin-left: auto;
+    min-width: 150px;
+    padding: 16px 20px;
+    border-left: 1px solid #e3e5ec;
+    gap: 2px;
+}
+
+.sleep-quality-score {
+    color: #6256b8;
+    font-size: 30px;
+    font-weight: 800;
+}
+
+
+/* ==========================================================
+   DETAIL CARDS
+   ========================================================== */
+
+.sleep-details-card {
+    width: 100%;
+    max-width: 1400px;
+    margin: 0 auto 20px auto;
+    padding: 25px;
+    border-radius: 20px;
+    border: 1px solid #e7e9ef;
+    box-shadow: 0 5px 18px rgba(31, 41, 55, 0.045);
+}
+
+.sleep-details-section-title {
+    margin-bottom: 20px;
+    font-size: 19px;
+    font-weight: 700;
+}
+
+.sleep-details-grid {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+}
+
+.sleep-detail-item {
+    min-height: 72px;
+    padding: 14px;
+    border-radius: 14px;
+    background: #f8f9fb;
+    align-items: flex-start;
+    gap: 11px;
+}
+
+.sleep-detail-item>.q-icon {
+    margin-top: 2px;
+    color: #756bc6;
+}
+
+.sleep-detail-item-content {
+    gap: 2px;
+}
+
+.sleep-detail-label {
+    color: #89919f;
+    font-size: 12px;
+}
+
+.sleep-detail-value {
+    color: #303846;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.sleep-details-long-text {
+    padding: 16px;
+    border-radius: 14px;
+    background: #f8f9fb;
+    color: #4f5868;
+    line-height: 1.7;
+    white-space: pre-wrap;
+}
+
+.sleep-not-found {
+    width: 100%;
+    min-height: 400px;
+    align-items: center;
+    justify-content: center;
+    gap: 15px;
+    color: #7d8695;
+}
+
+.sleep-delete-dialog {
+    min-width: 340px;
+    padding: 24px;
+    border-radius: 18px;
+}
+
+
+/* ==========================================================
+   FORM
+   ========================================================== */
+
+.sleep-form-container {
+    width: 100%;
+    max-width: 1000px;
+    margin: 0 auto;
+    gap: 18px;
+}
+
+.sleep-form-card {
+    width: 100%;
+    padding: 26px;
+    border-radius: 20px;
+    border: 1px solid #e7e9ef;
+    box-shadow: 0 5px 18px rgba(31, 41, 55, 0.045);
+}
+
+.sleep-form-section-title {
+    margin-bottom: 5px;
+    font-size: 19px;
+    font-weight: 700;
+}
+
+.sleep-form-help {
+    margin-bottom: 18px;
+    color: #858e9d;
+    font-size: 13px;
+    line-height: 1.6;
+}
+
+.sleep-form-grid {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+}
+
+.sleep-form-actions {
+    width: 100%;
+    justify-content: flex-end;
+    padding: 5px 0 30px 0;
+    gap: 8px;
+}
+
+.sleep-save-button {
+    padding-left: 22px;
+    padding-right: 22px;
+}
+
+.sleep-cancel-button {
+    border-radius: 10px;
+}
+
+
+/* ==========================================================
+   RESPONSIVE
+   ========================================================== */
+
+@media (max-width: 900px) {
+
+    .sleep-details-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .sleep-main-info {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 20px;
+    }
+
+    .sleep-quality-display {
+        margin-left: 0;
+        padding-left: 0;
+        border-left: none;
+        border-top: 1px solid #e3e5ec;
+        padding-top: 15px;
+        width: 100%;
+    }
+
+}
+
+
+@media (max-width: 650px) {
+
+    .sleep-page-header,
+    .sleep-details-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .sleep-add-button {
+        width: 100%;
+    }
+
+    .sleep-form-grid,
+    .sleep-details-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .sleep-record-card,
+    .sleep-details-card,
+    .sleep-form-card,
+    .sleep-overview-card {
+        padding: 18px;
+    }
+
+    .sleep-time {
+        font-size: 18px;
+    }
+
+    .sleep-overview-time {
+        font-size: 22px;
+    }
+
+    .sleep-record-actions {
+        justify-content: flex-start;
+        flex-wrap: wrap;
+    }
+
+}
+
+
+/* ==================================================
+   SLEEP DETAILS — SESSION REPORT
+   ================================================== */
+
+.sleep-details-kicker {
+    align-items: center;
+    gap: 8px;
+    letter-spacing: 0.14em;
+    font-size: 0.72rem;
+    font-weight: 700;
+    opacity: 0.65;
+}
+
+.sleep-details-header {
+    width: 100%;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 24px;
+    margin-bottom: 24px;
+}
+
+.sleep-details-title-group {
+    gap: 4px;
+}
+
+.sleep-details-actions {
+    align-items: center;
+    gap: 8px;
+}
+
+.sleep-session-hero {
+    width: 100%;
+    padding: 30px;
+    border-radius: 24px;
+    margin-bottom: 22px;
+}
+
+.sleep-session-hero-main {
+    gap: 8px;
+    flex: 1;
+}
+
+.sleep-session-type-row {
+    align-items: center;
+    gap: 10px;
+    opacity: 0.72;
+}
+
+.sleep-session-type {
+    font-size: 0.9rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.sleep-session-time {
+    font-size: clamp(1.8rem, 4vw, 3rem);
+    font-weight: 700;
+    line-height: 1.1;
+    margin-top: 8px;
+}
+
+.sleep-session-duration-label {
+    margin-top: 18px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    opacity: 0.6;
+}
+
+.sleep-session-duration {
+    font-size: 2rem;
+    font-weight: 800;
+    line-height: 1;
+}
+
+.sleep-session-quality {
+    min-width: 150px;
+    padding: 22px;
+    border-radius: 20px;
+    text-align: center;
+    align-items: center;
+    justify-content: center;
+}
+
+.sleep-session-quality-label {
+    font-size: 0.7rem;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    opacity: 0.6;
+}
+
+.sleep-session-quality-score {
+    font-size: 2.5rem;
+    font-weight: 800;
+    line-height: 1;
+    margin: 6px 0;
+}
+
+.sleep-session-quality-caption {
+    font-size: 0.75rem;
+    opacity: 0.6;
+}
+
+/* ==================================================
+   DURATION ANALYSIS
+   ================================================== */
+
+.sleep-duration-insight {
+    width: 100%;
+    padding: 24px;
+    border-radius: 22px;
+    margin-bottom: 22px;
+}
+
+.sleep-duration-insight-header {
+    align-items: center;
+    gap: 10px;
+}
+
+.sleep-duration-comparison {
+    width: 100%;
+    gap: 14px;
+    margin-top: 18px;
+}
+
+.sleep-duration-stat {
+    flex: 1;
+    min-width: 150px;
+    padding: 18px;
+    border-radius: 16px;
+}
+
+.sleep-duration-stat-label {
+    font-size: 0.75rem;
+    font-weight: 700;
+    opacity: 0.65;
+}
+
+.sleep-duration-stat-value {
+    font-size: 1.45rem;
+    font-weight: 800;
+    margin-top: 5px;
+}
+
+.sleep-duration-stat-caption {
+    font-size: 0.72rem;
+    opacity: 0.55;
+    margin-top: 3px;
+}
+
+.sleep-duration-insight-text {
+    margin-top: 18px;
+    line-height: 1.6;
+    opacity: 0.75;
+}
+
+/* ==================================================
+   DETAIL CARDS
+   ================================================== */
+
+.sleep-details-card {
+    width: 100%;
+    padding: 24px;
+    border-radius: 22px;
+    margin-bottom: 20px;
+}
+
+.sleep-details-section-title {
+    font-size: 1.15rem;
+    font-weight: 800;
+}
+
+.sleep-details-section-subtitle {
+    font-size: 0.82rem;
+    opacity: 0.58;
+    margin-top: 3px;
+    margin-bottom: 20px;
+}
+
+.sleep-details-grid {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.sleep-detail-item {
+    min-height: 90px;
+    padding: 16px;
+    border-radius: 16px;
+    gap: 7px;
+}
+
+.sleep-detail-item-heading {
+    align-items: center;
+    gap: 7px;
+}
+
+.sleep-detail-label {
+    font-size: 0.76rem;
+    font-weight: 700;
+    opacity: 0.58;
+}
+
+.sleep-detail-value {
+    font-size: 1rem;
+    font-weight: 700;
+    line-height: 1.35;
+}
+
+/* ==================================================
+   LONG TEXT
+   ================================================== */
+
+.sleep-text-card {
+    padding-bottom: 28px;
+}
+
+.sleep-text-card-title {
+    align-items: center;
+    gap: 9px;
+    margin-bottom: 14px;
+}
+
+.sleep-details-long-text {
+    white-space: pre-wrap;
+    line-height: 1.75;
+    font-size: 0.95rem;
+    opacity: 0.82;
+}
+
+/* ==================================================
+   FOOTER
+   ================================================== */
+
+.sleep-details-footer-actions {
+    width: 100%;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 8px;
+    padding-bottom: 30px;
+}
+
+/* ==================================================
+   DELETE DIALOG
+   ================================================== */
+
+.sleep-delete-dialog {
+    min-width: 360px;
+    max-width: 480px;
+    padding: 28px;
+    border-radius: 22px;
+}
+
+.sleep-delete-warning-icon {
+    margin-bottom: 8px;
+}
+
+.sleep-delete-dialog-title {
+    font-size: 1.3rem;
+    font-weight: 800;
+}
+
+.sleep-delete-dialog-text {
+    margin-top: 8px;
+    line-height: 1.5;
+    opacity: 0.72;
+}
+
+.sleep-delete-dialog-warning {
+    margin-top: 10px;
+    font-weight: 700;
+    opacity: 0.8;
+}
+
+.sleep-delete-dialog-actions {
+    width: 100%;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 20px;
+}
+
+.sleep-confirm-delete-button {
+    border-radius: 10px;
+}
+
+/* ==================================================
+   RESPONSIVE
+   ================================================== */
+
+@media (max-width: 900px) {
+
+    .sleep-details-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .sleep-session-hero {
+        padding: 24px;
+    }
+
+    .sleep-session-quality {
+        min-width: 125px;
+    }
+}
+
+@media (max-width: 650px) {
+
+    .sleep-details-header {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .sleep-details-actions {
+        width: 100%;
+    }
+
+    .sleep-session-hero {
+        padding: 20px;
+    }
+
+    .sleep-session-quality {
+        width: 100%;
+        margin-top: 18px;
+    }
+
+    .sleep-duration-comparison {
+        flex-direction: column;
+    }
+
+    .sleep-duration-stat {
+        width: 100%;
+    }
+
+    .sleep-details-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .sleep-details-footer-actions {
+        justify-content: stretch;
+        flex-direction: column;
+    }
+
+    .sleep-details-footer-actions .q-btn {
+        width: 100%;
+    }
+
+    .sleep-delete-dialog {
+        min-width: unset;
+        width: calc(100vw - 32px);
+    }
+}
+

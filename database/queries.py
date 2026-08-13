@@ -1671,3 +1671,237 @@ def delete_prediction_feedback(feedback_id):
     finally:
         cursor.close()
         connection.close()
+
+# =========================================================
+# SLEEP QUERIES
+# =========================================================
+
+def get_all_sleep_records():
+    connection = get_connection()
+    try:
+        cursor = connection.cursor(dictionary=True)
+        cursor.execute("""
+            SELECT *
+            FROM sleep
+            ORDER BY Date DESC, Start_Time DESC, Sleep_ID DESC
+        """)
+        return cursor.fetchall()
+    finally:
+        cursor.close()
+        connection.close()
+
+
+def get_sleep_record_by_id(sleep_id):
+    connection = get_connection()
+    try:
+        cursor = connection.cursor(dictionary=True)
+        cursor.execute("""
+            SELECT *
+            FROM sleep
+            WHERE Sleep_ID = %s
+        """, (sleep_id,))
+        return cursor.fetchone()
+    finally:
+        cursor.close()
+        connection.close()
+
+
+def get_sleep_records_by_date(date):
+    connection = get_connection()
+    try:
+        cursor = connection.cursor(dictionary=True)
+        cursor.execute("""
+            SELECT *
+            FROM sleep
+            WHERE Date = %s
+            ORDER BY Start_Time ASC, Sleep_ID ASC
+        """, (date,))
+        return cursor.fetchall()
+    finally:
+        cursor.close()
+        connection.close()
+
+
+def add_sleep_record(
+    date,
+    start_time,
+    end_time,
+    duration_minutes,
+    sleep_type,
+    continuity,
+    location,
+    position,
+    awakenings,
+    sleep_quality,
+    noise_level,
+    light_level,
+    temperature_level,
+    comfort_level,
+    stress_before_sleep,
+    caffeine_before_sleep,
+    screen_before_sleep,
+    before_sleep_activity,
+    dreams,
+    notes,
+):
+    connection = get_connection()
+
+    try:
+        cursor = connection.cursor()
+
+        cursor.execute("""
+            INSERT INTO sleep (
+                Date,
+                Start_Time,
+                End_Time,
+                Duration_Minutes,
+                Sleep_Type,
+                Continuity,
+                Location,
+                Position,
+                Awakenings,
+                Sleep_Quality,
+                Noise_Level,
+                Light_Level,
+                Temperature_Level,
+                Comfort_Level,
+                Stress_Before_Sleep,
+                Caffeine_Before_Sleep,
+                Screen_Before_Sleep,
+                Before_Sleep_Activity,
+                Dreams,
+                Notes
+            )
+            VALUES (
+                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+            )
+        """, (
+            date,
+            start_time,
+            end_time,
+            duration_minutes,
+            sleep_type,
+            continuity,
+            location,
+            position,
+            awakenings,
+            sleep_quality,
+            noise_level,
+            light_level,
+            temperature_level,
+            comfort_level,
+            stress_before_sleep,
+            caffeine_before_sleep,
+            screen_before_sleep,
+            before_sleep_activity,
+            dreams,
+            notes,
+        ))
+
+        connection.commit()
+
+    finally:
+        cursor.close()
+        connection.close()
+
+
+def update_sleep_record(
+    sleep_id,
+    date,
+    start_time,
+    end_time,
+    duration_minutes,
+    sleep_type,
+    continuity,
+    location,
+    position,
+    awakenings,
+    sleep_quality,
+    noise_level,
+    light_level,
+    temperature_level,
+    comfort_level,
+    stress_before_sleep,
+    caffeine_before_sleep,
+    screen_before_sleep,
+    before_sleep_activity,
+    dreams,
+    notes,
+):
+    connection = get_connection()
+
+    try:
+        cursor = connection.cursor()
+
+        cursor.execute("""
+            UPDATE sleep
+            SET
+                Date = %s,
+                Start_Time = %s,
+                End_Time = %s,
+                Duration_Minutes = %s,
+                Sleep_Type = %s,
+                Continuity = %s,
+                Location = %s,
+                Position = %s,
+                Awakenings = %s,
+                Sleep_Quality = %s,
+                Noise_Level = %s,
+                Light_Level = %s,
+                Temperature_Level = %s,
+                Comfort_Level = %s,
+                Stress_Before_Sleep = %s,
+                Caffeine_Before_Sleep = %s,
+                Screen_Before_Sleep = %s,
+                Before_Sleep_Activity = %s,
+                Dreams = %s,
+                Notes = %s
+            WHERE Sleep_ID = %s
+        """, (
+            date,
+            start_time,
+            end_time,
+            duration_minutes,
+            sleep_type,
+            continuity,
+            location,
+            position,
+            awakenings,
+            sleep_quality,
+            noise_level,
+            light_level,
+            temperature_level,
+            comfort_level,
+            stress_before_sleep,
+            caffeine_before_sleep,
+            screen_before_sleep,
+            before_sleep_activity,
+            dreams,
+            notes,
+            sleep_id,
+        ))
+
+        connection.commit()
+
+    finally:
+        cursor.close()
+        connection.close()
+
+
+def delete_sleep_record(sleep_id):
+    connection = get_connection()
+
+    try:
+        cursor = connection.cursor()
+
+        cursor.execute("""
+            DELETE FROM sleep
+            WHERE Sleep_ID = %s
+        """, (sleep_id,))
+
+        connection.commit()
+
+    finally:
+        cursor.close()
+        connection.close()

@@ -7,9 +7,11 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 LOGO = PROJECT_ROOT / 'assets' / 'budget.png'
 
 def load_main_css():
-    css_file = Path('styles/main.css')
+    css_file = PROJECT_ROOT / 'styles' / 'main.css'
+
 
     if css_file.exists():
+
         css_version = css_file.stat().st_mtime_ns
 
         ui.add_head_html(
@@ -18,101 +20,77 @@ def load_main_css():
         )
 
 
-def create_header(title='Dashboard'):
+def create_header(title='Dashboard', drawer=None):
 
-    # Load shared application CSS
+
     load_main_css()
-
-    navigation = {
-        
-
-        'Income': [
-            ('Records', '/income', 'list'),
-            ('Add Income', '/income/add', 'add'),
-        ],
-
-        'Expenses': [
-            ('Records', '/expenses', 'list'),
-            ('Add Expense', '/expenses/add', 'add'),
-        ],
-
-        'Budgets': [
-            ('Overview', '/budgets', 'account_balance_wallet'),
-            ('Add Budget', '/budgets/add', 'add'),
-        ],
-
-        'Days': [
-            ('Daily Records', '/days', 'calendar_month'),
-            ('Add Day', '/days/add', 'add'),
-        ],
-
-        'Events': [
-            ('Records', '/events', 'event'),
-            ('Add Event', '/events/add', 'add'),
-        ],
-
-        'Analysis': [
-            ('Overview', '/analysis', 'analytics'),
-        ],
-
-        'Reports': [
-            ('Reports', '/reports', 'description'),
-        ],
-
-        'Settings': [
-            ('Settings', '/settings', 'settings'),
-        ],
-    }
-
-    main_navigation = [
-        ('Income', '/income', 'payments'),
-        ('Expenses', '/expenses', 'shopping_cart'),
-        ('Budgets', '/budgets', 'account_balance_wallet'),
-        ('Days', '/days', 'calendar_month'),
-        ('Events', '/events', 'event'),
-        ('Analysis', '/analysis', 'analytics'),
-        ('Reports', '/reports', 'description'),
-        ('Settings', '/settings', 'settings'),
-    ]
 
     with ui.header().classes('app-header'):
 
-        # Application title
-        with ui.row().classes('header-top'):
+        # -------------------------------------------------
+        # LEFT
+        # -------------------------------------------------
 
-            with ui.link(target='/').classes('app-logo-link'):
-                ui.image(str(LOGO)).classes('app-logo')
-            ui.label(
-                title
-            ).classes('current-page')
+        with ui.row().classes('header-left'):
 
-        # Main navigation
-        with ui.row().classes('main-navigation'):
+            if drawer is not None:
 
-            for label, path, icon in main_navigation:
+                ui.button(
+                    icon='menu',
+                    on_click=drawer.toggle,
+                ).props(
+                    'flat round'
+                ).classes('menu-button')
 
-                button = ui.button(
-                    label,
-                    icon=icon,
-                    on_click=lambda path=path:
-                        ui.navigate.to(path)
-                ).props('flat')
+            with ui.link(
+                target='/'
+            ).classes('app-logo-link'):
 
-                if label == title:
-                    button.classes('navigation-active')
+                ui.image(
+                    str(LOGO)
+                ).classes('app-logo')
 
-        # Section navigation
-        section_items = navigation.get(title, [])
+            with ui.column().classes(
+                'header-title-group'
+            ):
 
-        if section_items:
+                ui.label(
+                    'Personal Finance AI'
+                ).classes('app-title')
 
-            with ui.row().classes('section-navigation'):
+                ui.label(
+                    title
+                ).classes('current-page')
 
-                for label, path, icon in section_items:
+        # -------------------------------------------------
+        # RIGHT
+        # -------------------------------------------------
 
-                    ui.button(
-                        label,
-                        icon=icon,
-                        on_click=lambda path=path:
-                            ui.navigate.to(path)
-                    ).props('flat dense')
+        with ui.row().classes('header-actions'):
+
+            ui.button(
+                icon='search',
+                on_click=lambda: ui.notify(
+                    'Search will be available soon.'
+                ),
+            ).props(
+                'flat round'
+            ).classes('header-action')
+
+            ui.button(
+                icon='notifications_none',
+                on_click=lambda: ui.notify(
+                    'Notifications will be available soon.'
+                ),
+            ).props(
+                'flat round'
+            ).classes('header-action')
+
+            ui.button(
+                icon='settings',
+                on_click=lambda: ui.navigate.to(
+                    '/settings'
+                ),
+            ).props(
+                'flat round'
+            ).classes('header-action')
