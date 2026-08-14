@@ -1,181 +1,749 @@
 # =========================================================
+
 # TARGET DATASET BUILDER
+
 # =========================================================
 
 from ml.preparation.preparation import (
-    get_prepared_dataset,
+get_prepared_dataset,
 )
 
 from ml.targets.activity import (
-    create_activity_targets,
+create_activity_targets,
 )
 
 from ml.targets.behavioral import (
-    create_behavioral_targets,
+create_behavioral_targets,
 )
 
 from ml.targets.events import (
-    create_event_targets,
+create_event_targets,
 )
 
 from ml.targets.financial import (
-    create_financial_targets,
+create_financial_targets,
 )
 
 from ml.targets.health import (
-    create_health_targets,
+create_health_targets,
 )
 
 from ml.targets.location import (
-    create_location_targets,
+create_location_targets,
 )
 
 from ml.targets.patterns import (
-    create_pattern_targets,
+create_pattern_targets,
 )
 
 from ml.targets.travel import (
-    create_travel_targets,
+create_travel_targets,
 )
 
-
-# =========================================================
-# HORIZONS
 # =========================================================
 
-HORIZONS = {
-    '1D': 1,
-    '7D': 7,
-    '30D': 30,
+# DAILY HORIZONS
+
+# =========================================================
+
+#
+
+# Detailed prediction for the first seven future days.
+
+#
+
+# 1D -> T + 1
+
+# 2D -> T + 2
+
+# 3D -> T + 3
+
+# 4D -> T + 4
+
+# 5D -> T + 5
+
+# 6D -> T + 6
+
+# 7D -> T + 7
+
+#
+
+# These preserve exact future timing.
+
+# =========================================================
+
+DAILY_HORIZONS = {
+'1D': 1,
+'2D': 2,
+'3D': 3,
+'4D': 4,
+'5D': 5,
+'6D': 6,
+'7D': 7,
 }
 
-
-# =========================================================
-# FUTURE WINDOW BUILDER
 # =========================================================
 
-def get_future_rows(
+# PERIOD HORIZONS
+
+# =========================================================
+
+#
+
+# These horizons summarize future periods.
+
+#
+
+# 8_15D  -> T + 8  ... T + 15
+
+# 16_30D -> T + 16 ... T + 30
+
+# 30D    -> T + 1  ... T + 30
+
+#
+
+# They do NOT replace the detailed 1D ... 7D targets.
+
+# =========================================================
+
+PERIOD_HORIZONS = {
+'8_15D': (8, 15),
+'16_30D': (16, 30),
+'30D': (1, 30),
+}
+
+# =========================================================
+
+# ALL HORIZONS
+
+# =========================================================
+
+ALL_HORIZONS = {
+**DAILY_HORIZONS,
+**{
+horizon: end_day
+for horizon, (_, end_day)
+in PERIOD_HORIZONS.items()
+},
+}
+
+# =========================================================
+
+# FUTURE DAY
+
+# =========================================================
+
+def get_future_day(
     prepared_data,
     current_index,
-    horizon_days,
-):
+    future_day,
+    ):
     """
-    Return the future rows belonging to a target horizon.
+    Return exactly one future row.
 
-    For a row at T:
+    ```
+    Examples:
 
-        1D  -> T + 1
-        7D  -> T + 1 ... T + 7
-        30D -> T + 1 ... T + 30
+        future_day = 1
+            -> T + 1
 
-    The current row T is NEVER included.
+        future_day = 7
+            -> T + 7
 
-    Only rows that actually exist in the historical
-    dataset are returned.
+        future_day = 30
+            -> T + 30
 
-    Parameters
-    ----------
-    prepared_data : list[dict]
-
-    current_index : int
-
-    horizon_days : int
-
-    Returns
-    -------
-    list[dict]
+    Returns None when the requested future day
+    does not exist.
     """
+
+    target_index = (
+        current_index
+        + future_day
+    )
+
+    if (
+        target_index < 0
+        or target_index >= len(prepared_data)
+    ):
+        return None
+
+    return prepared_data[
+        target_index
+    ]
+    
+
+    # =========================================================
+
+    # FUTURE PERIOD
+
+    # =========================================================
+
+def get_future_period(
+    prepared_data,
+    current_index,
+    start_day,
+    end_day,
+    ):
+    """
+    Return future rows belonging to a specific
+    future period.
+
+    ```
+    Examples:
+
+        8, 15
+            -> T+8 ... T+15
+
+        16, 30
+            -> T+16 ... T+30
+
+        1, 30
+            -> T+1 ... T+30
+
+    The current row T is never included.
+    """
+
+    if start_day < 1:
+        raise ValueError(
+            'start_day must be >= 1.'
+        )
+
+    if end_day < start_day:
+        raise ValueError(
+            'end_day must be >= start_day.'
+        )
 
     start_index = (
-        current_index + 1
+        current_index
+        + start_day
     )
 
     end_index = (
         current_index
-        + horizon_days
+        + end_day
         + 1
     )
 
     return prepared_data[
         start_index:end_index
     ]
+    
 
+    # =========================================================
 
-# =========================================================
-# TARGET AVAILABILITY
-# =========================================================
+    # COMPLETE FUTURE DAY
 
-def has_complete_future_window(
+    # =========================================================
+
+def has_future_day(
     prepared_data,
     current_index,
-    horizon_days,
-):
+    future_day,
+    ):
     """
-    Determine whether the complete future horizon exists.
+    Return True when the requested future day exists.
+    """
 
+    
+    return (
+        get_future_day(
+            prepared_data,
+            current_index,
+            future_day,
+        )
+        is not None
+    )
+    
+
+    # =========================================================
+
+    # COMPLETE FUTURE PERIOD
+
+    # =========================================================
+
+def has_complete_future_period(
+    prepared_data,
+    current_index,
+    start_day,
+    end_day,
+    ):
+    """
+    Determine whether every day in the requested
+    future period exists.
+
+    ```
     Example:
 
-        For a 7D target, the current row must have
-        seven future rows available.
+        8_15D is complete only when:
 
-    This is important because a partially available
-    future window should not be treated as a complete
-    7D or 30D target.
+            T+8 ... T+15
+
+        all exist.
     """
 
-    future_rows = get_future_rows(
+    future_rows = get_future_period(
         prepared_data,
         current_index,
-        horizon_days,
+        start_day,
+        end_day,
     )
 
-    return len(future_rows) == horizon_days
+    expected_days = (
+        end_day
+        - start_day
+        + 1
+    )
 
+    return len(
+        future_rows
+    ) == expected_days
 
-# =========================================================
-# TARGET DATASET BUILDER
-# =========================================================
+    # =========================================================
+
+    # TARGET COLUMN HELPERS
+
+    # =========================================================
+
+def _nan_targets(
+    horizon_name,
+    ):
+    """
+    Return the standard empty target structure
+    for one horizon.
+    """
+
+    return {
+
+        # -------------------------------------------------
+        # Activity
+        # -------------------------------------------------
+
+        f'Target_Has_Activity_{horizon_name}':
+            float('nan'),
+
+        f'Target_High_Activity_{horizon_name}':
+            float('nan'),
+
+        f'Target_Long_Activity_{horizon_name}':
+            float('nan'),
+
+        # -------------------------------------------------
+        # Behavioral
+        # -------------------------------------------------
+
+        f'Target_High_Stress_{horizon_name}':
+            float('nan'),
+
+        f'Target_Moderate_or_High_Stress_{horizon_name}':
+            float('nan'),
+
+        f'Target_Low_Sleep_{horizon_name}':
+            float('nan'),
+
+        f'Target_Very_Low_Sleep_{horizon_name}':
+            float('nan'),
+
+        f'Target_High_Social_Activity_{horizon_name}':
+            float('nan'),
+
+        f'Target_Moderate_or_High_Social_Activity_{horizon_name}':
+            float('nan'),
+
+        f'Target_Working_Day_{horizon_name}':
+            float('nan'),
+
+        f'Target_Difficult_Behavioral_Day_{horizon_name}':
+            float('nan'),
+
+        # -------------------------------------------------
+        # Events
+        # -------------------------------------------------
+
+        f'Target_Has_Event_{horizon_name}':
+            float('nan'),
+
+        f'Target_Multiple_Events_{horizon_name}':
+            float('nan'),
+
+        f'Target_Has_Special_Event_{horizon_name}':
+            float('nan'),
+
+        # -------------------------------------------------
+        # Financial
+        # -------------------------------------------------
+
+        f'Target_Expense_Total_{horizon_name}':
+            float('nan'),
+
+        f'Target_Income_Total_{horizon_name}':
+            float('nan'),
+
+        f'Target_Balance_{horizon_name}':
+            float('nan'),
+
+        f'Target_Expense_Days_{horizon_name}':
+            float('nan'),
+
+        f'Target_Income_Days_{horizon_name}':
+            float('nan'),
+
+        f'Target_High_Expense_{horizon_name}':
+            float('nan'),
+
+        # -------------------------------------------------
+        # Health
+        # -------------------------------------------------
+
+        f'Target_Health_Problem_{horizon_name}':
+            float('nan'),
+
+        f'Target_High_Health_Severity_{horizon_name}':
+            float('nan'),
+
+        f'Target_Low_Energy_{horizon_name}':
+            float('nan'),
+
+        f'Target_Significant_Health_Day_{horizon_name}':
+            float('nan'),
+
+        # -------------------------------------------------
+        # Location
+        # -------------------------------------------------
+
+        f'Target_Has_Location_{horizon_name}':
+            float('nan'),
+
+        f'Target_Location_Changed_{horizon_name}':
+            float('nan'),
+
+        f'Target_Same_Location_{horizon_name}':
+            float('nan'),
+
+        f'Target_Location_{horizon_name}':
+            None,
+
+        # -------------------------------------------------
+        # Patterns
+        # -------------------------------------------------
+
+        f'Target_Busy_Day_{horizon_name}':
+            float('nan'),
+
+        f'Target_Financial_Activity_{horizon_name}':
+            float('nan'),
+
+        f'Target_Difficult_Day_{horizon_name}':
+            float('nan'),
+
+        f'Target_Active_Day_{horizon_name}':
+            float('nan'),
+
+        f'Target_Travel_Day_{horizon_name}':
+            float('nan'),
+
+        f'Target_Special_Day_{horizon_name}':
+            float('nan'),
+
+        # -------------------------------------------------
+        # Travel
+        # -------------------------------------------------
+
+        f'Target_Travel_Day_{horizon_name}':
+            float('nan'),
+    }
+
+    # =========================================================
+
+    # DAILY TARGET BUILDER
+
+    # =========================================================
+
+def create_daily_targets(
+    future_row,
+    horizon_name,
+    previous_rows,
+    ):
+    """
+    Create targets for exactly one future day.
+
+    ```
+    Supported horizons:
+
+        1D -> T+1
+        2D -> T+2
+        ...
+        7D -> T+7
+
+    This function NEVER aggregates multiple future days.
+    """
+
+    if horizon_name not in DAILY_HORIZONS:
+        raise ValueError(
+            f'Unsupported daily horizon: '
+            f'{horizon_name}'
+        )
+
+    if future_row is None:
+        return _nan_targets(
+            horizon_name
+        )
+
+    targets = {}
+
+    # =====================================================
+    # ACTIVITY
+    # =====================================================
+
+    targets.update(
+        create_activity_targets(
+            [future_row],
+            horizon_name,
+        )
+    )
+
+    # =====================================================
+    # BEHAVIORAL
+    # =====================================================
+
+    targets.update(
+        create_behavioral_targets(
+            [future_row],
+            horizon_name,
+        )
+    )
+
+    # =====================================================
+    # EVENTS
+    # =====================================================
+
+    targets.update(
+        create_event_targets(
+            [future_row],
+            horizon_name,
+        )
+    )
+
+    # =====================================================
+    # FINANCIAL
+    # =====================================================
+
+    targets.update(
+        create_financial_targets(
+            [future_row],
+            horizon_name,
+            previous_rows,
+        )
+    )
+
+    # =====================================================
+    # HEALTH
+    # =====================================================
+
+    targets.update(
+        create_health_targets(
+            [future_row],
+            horizon_name,
+        )
+    )
+
+    # =====================================================
+    # LOCATION
+    # =====================================================
+
+    targets.update(
+        create_location_targets(
+            [future_row],
+            horizon_name,
+            previous_rows,
+        )
+    )
+
+    # =====================================================
+    # PATTERNS
+    # =====================================================
+
+    targets.update(
+        create_pattern_targets(
+            [future_row],
+            horizon_name,
+        )
+    )
+
+    # =====================================================
+    # TRAVEL
+    # =====================================================
+
+    targets.update(
+        create_travel_targets(
+            [future_row],
+            horizon_name,
+        )
+    )
+
+    return targets
+
+    # =========================================================
+
+    # PERIOD TARGET BUILDER
+
+    # =========================================================
+
+def create_period_targets(
+    future_rows,
+    horizon_name,
+    previous_rows,
+    ):
+    """
+    Create aggregate targets for one future period.
+
+    ```
+    Supported periods:
+
+        8_15D
+        16_30D
+        30D
+
+    These targets describe the period as a whole.
+
+    They do not replace the detailed daily targets.
+    """
+
+    if horizon_name not in PERIOD_HORIZONS:
+        raise ValueError(
+            f'Unsupported period horizon: '
+            f'{horizon_name}'
+        )
+
+    if not future_rows:
+        return _nan_targets(
+            horizon_name
+        )
+
+    targets = {}
+
+    # =====================================================
+    # ACTIVITY
+    # =====================================================
+
+    targets.update(
+        create_activity_targets(
+            future_rows,
+            horizon_name,
+        )
+    )
+
+    # =====================================================
+    # BEHAVIORAL
+    # =====================================================
+
+    targets.update(
+        create_behavioral_targets(
+            future_rows,
+            horizon_name,
+        )
+    )
+
+    # =====================================================
+    # EVENTS
+    # =====================================================
+
+    targets.update(
+        create_event_targets(
+            future_rows,
+            horizon_name,
+        )
+    )
+
+    # =====================================================
+    # FINANCIAL
+    # =====================================================
+
+    targets.update(
+        create_financial_targets(
+            future_rows,
+            horizon_name,
+            previous_rows,
+        )
+    )
+
+    # =====================================================
+    # HEALTH
+    # =====================================================
+
+    targets.update(
+        create_health_targets(
+            future_rows,
+            horizon_name,
+        )
+    )
+
+    # =====================================================
+    # LOCATION
+    # =====================================================
+
+    targets.update(
+        create_location_targets(
+            future_rows,
+            horizon_name,
+            previous_rows,
+        )
+    )
+
+    # =====================================================
+    # PATTERNS
+    # =====================================================
+
+    targets.update(
+        create_pattern_targets(
+            future_rows,
+            horizon_name,
+        )
+    )
+
+    # =====================================================
+    # TRAVEL
+    # =====================================================
+
+    targets.update(
+        create_travel_targets(
+            future_rows,
+            horizon_name,
+        )
+    )
+
+    return targets
+
+    # =========================================================
+
+    # TARGET DATASET BUILDER
+
+    # =========================================================
 
 def build_target_dataset(
     prepared_data=None,
-):
+    ):
     """
     Build the final future-oriented Target Dataset.
 
-    Data flow:
+    ```
+    Design:
 
-        Prepared Dataset
-                ↓
-        Chronological ordering
-                ↓
-        For each day T:
-                ↓
-        Future 1D / 7D / 30D windows
-                ↓
-        Target Engineering
-                ↓
-        Final Target Dataset
+        Detailed daily targets:
 
-    Important
-    ---------
+            T+1
+            T+2
+            ...
+            T+7
 
-    The target for date T is based exclusively on dates
-    AFTER T.
+        Period targets:
 
-    Therefore:
+            T+8 ... T+15
+            T+16 ... T+30
+            T+1 ... T+30
 
-        Target_*_1D
-            = outcome on T + 1
-
-        Target_*_7D
-            = outcome during T + 1 ... T + 7
-
-        Target_*_30D
-            = outcome during T + 1 ... T + 30
-
-    The current day is never included.
-
-    Incomplete future horizons return NaN targets.
+    This provides detailed short-term timing while
+    retaining broader medium-term and monthly summaries.
     """
 
     # -----------------------------------------------------
@@ -183,8 +751,9 @@ def build_target_dataset(
     # -----------------------------------------------------
 
     if prepared_data is None:
-
-        prepared_data = get_prepared_dataset()
+        prepared_data = (
+            get_prepared_dataset()
+        )
 
     if prepared_data is None:
         return []
@@ -204,7 +773,7 @@ def build_target_dataset(
     target_dataset = []
 
     # =====================================================
-    # PROCESS EACH DAY
+    # PROCESS EACH CURRENT DAY
     # =====================================================
 
     for current_index, current_row in enumerate(
@@ -212,236 +781,97 @@ def build_target_dataset(
     ):
 
         targets = {
-            'Date': current_row['Date'],
+            'Date':
+                current_row['Date'],
         }
 
         # -------------------------------------------------
-        # Future 1D
+        # Historical rows before T
         # -------------------------------------------------
 
-        future_1d = get_future_rows(
-            prepared_data,
-            current_index,
-            HORIZONS['1D'],
-        )
-
-        # -------------------------------------------------
-        # Future 7D
-        # -------------------------------------------------
-
-        future_7d = get_future_rows(
-            prepared_data,
-            current_index,
-            HORIZONS['7D'],
-        )
-
-        # -------------------------------------------------
-        # Future 30D
-        # -------------------------------------------------
-
-        future_30d = get_future_rows(
-            prepared_data,
-            current_index,
-            HORIZONS['30D'],
-        )
+        previous_rows = prepared_data[
+            :current_index
+        ]
 
         # =================================================
-        # ACTIVITY
-        # =================================================
-
-        targets.update(
-            create_activity_targets(
-                future_1d,
-                '1D',
-            )
-        )
-
-        targets.update(
-            create_activity_targets(
-                future_7d,
-                '7D',
-            )
-        )
-
-        targets.update(
-            create_activity_targets(
-                future_30d,
-                '30D',
-            )
-        )
-
-        # =================================================
-        # BEHAVIORAL
-        # =================================================
-
-        targets.update(
-            create_behavioral_targets(
-                future_1d,
-                '1D',
-            )
-        )
-
-        targets.update(
-            create_behavioral_targets(
-                future_7d,
-                '7D',
-            )
-        )
-
-        targets.update(
-            create_behavioral_targets(
-                future_30d,
-                '30D',
-            )
-        )
-
-        # =================================================
-        # EVENTS
-        # =================================================
-
-        targets.update(
-            create_event_targets(
-                future_1d,
-                '1D',
-            )
-        )
-
-        targets.update(
-            create_event_targets(
-                future_7d,
-                '7D',
-            )
-        )
-
-        targets.update(
-            create_event_targets(
-                future_30d,
-                '30D',
-            )
-        )
-
-        # =================================================
-        # FINANCIAL
+        # DETAILED DAILY TARGETS
         # =================================================
         #
-        # Financial is currently still based on the existing
-        # financial target implementation.
+        # T+1 ... T+7
+        # =================================================
+
+        for horizon_name, future_day in (
+            DAILY_HORIZONS.items()
+        ):
+
+            future_row = get_future_day(
+                prepared_data,
+                current_index,
+                future_day,
+            )
+
+            targets.update(
+                create_daily_targets(
+                    future_row,
+                    horizon_name,
+                    previous_rows,
+                )
+            )
+
+        # =================================================
+        # PERIOD TARGETS
+        # =================================================
         #
-        # It will be redesigned next so that financial
-        # targets contain useful numerical future values.
+        # 8_15D
+        # 16_30D
+        # 30D
         # =================================================
 
-        targets.update(
-            create_financial_targets(
-                current_row,
-                prepared_data[
-                    :current_index
-                ],
+        for horizon_name, (
+            start_day,
+            end_day,
+        ) in PERIOD_HORIZONS.items():
+
+            future_rows = get_future_period(
+                prepared_data,
+                current_index,
+                start_day,
+                end_day,
             )
-        )
 
-        # =================================================
-        # HEALTH
-        # =================================================
-
-        targets.update(
-            create_health_targets(
-                future_1d,
-                '1D',
+            expected_days = (
+                end_day
+                - start_day
+                + 1
             )
-        )
 
-        targets.update(
-            create_health_targets(
-                future_7d,
-                '7D',
-            )
-        )
+            # -------------------------------------------------
+            # Only create a valid period target when the
+            # complete future period exists.
+            # -------------------------------------------------
 
-        targets.update(
-            create_health_targets(
-                future_30d,
-                '30D',
-            )
-        )
+            if len(future_rows) == expected_days:
 
-        # =================================================
-        # LOCATION
-        # =================================================
+                targets.update(
+                    create_period_targets(
+                        future_rows,
+                        horizon_name,
+                        previous_rows,
+                    )
+                )
 
-        targets.update(
-            create_location_targets(
-                future_1d,
-                '1D',
-            )
-        )
+            else:
 
-        targets.update(
-            create_location_targets(
-                future_7d,
-                '7D',
-            )
-        )
-
-        targets.update(
-            create_location_targets(
-                future_30d,
-                '30D',
-            )
-        )
-
-        # =================================================
-        # PATTERNS
-        # =================================================
-
-        targets.update(
-            create_pattern_targets(
-                future_1d,
-                '1D',
-            )
-        )
-
-        targets.update(
-            create_pattern_targets(
-                future_7d,
-                '7D',
-            )
-        )
-
-        targets.update(
-            create_pattern_targets(
-                future_30d,
-                '30D',
-            )
-        )
-
-        # =================================================
-        # TRAVEL
-        # =================================================
-
-        targets.update(
-            create_travel_targets(
-                future_1d,
-                '1D',
-            )
-        )
-
-        targets.update(
-            create_travel_targets(
-                future_7d,
-                '7D',
-            )
-        )
-
-        targets.update(
-            create_travel_targets(
-                future_30d,
-                '30D',
-            )
-        )
+                targets.update(
+                    create_period_targets(
+                        [],
+                        horizon_name,
+                        previous_rows,
+                    )
+                )
 
         # -------------------------------------------------
-        # Store targets
+        # Store row
         # -------------------------------------------------
 
         target_dataset.append(
@@ -450,14 +880,15 @@ def build_target_dataset(
 
     return target_dataset
 
+    # =========================================================
 
-# =========================================================
-# PUBLIC ENTRY POINT
-# =========================================================
+    # PUBLIC ENTRY POINT
+
+    # =========================================================
 
 def get_target_dataset(
     prepared_data=None,
-):
+    ):
     """
     Public entry point for Target Engineering.
     """
@@ -466,169 +897,58 @@ def get_target_dataset(
         prepared_data
     )
 
+    # =========================================================
 
-# =========================================================
-# TARGET METADATA
-# =========================================================
+    # TARGET NAMES
+
+    # =========================================================
 
 def get_target_names():
     """
-    Return the raw target names generated by this builder.
+    Return all target names generated by this builder.
 
-    Financial targets are currently excluded from the
-    horizon-specific list because they are still using
-    the old implementation and will be redesigned next.
+    ```
+    Detailed daily targets:
+
+        1D ... 7D
+
+    Period targets:
+
+        8_15D
+        16_30D
+        30D
     """
 
-    return [
+    target_names = []
 
-        # -------------------------------------------------
-        # Activity
-        # -------------------------------------------------
+    # =====================================================
+    # DAILY TARGETS
+    # =====================================================
 
-        'Target_Has_Activity_1D',
-        'Target_High_Activity_1D',
-        'Target_Long_Activity_1D',
+    for horizon in DAILY_HORIZONS:
 
-        'Target_Has_Activity_7D',
-        'Target_High_Activity_7D',
-        'Target_Long_Activity_7D',
+        target_names.extend(
+            _nan_targets(
+                horizon
+            ).keys()
+        )
 
-        'Target_Has_Activity_30D',
-        'Target_High_Activity_30D',
-        'Target_Long_Activity_30D',
+    # =====================================================
+    # PERIOD TARGETS
+    # =====================================================
 
-        # -------------------------------------------------
-        # Behavioral
-        # -------------------------------------------------
+    for horizon in PERIOD_HORIZONS:
 
-        'Target_High_Stress_1D',
-        'Target_Moderate_or_High_Stress_1D',
-        'Target_Low_Sleep_1D',
-        'Target_Very_Low_Sleep_1D',
-        'Target_High_Social_Activity_1D',
-        'Target_Moderate_or_High_Social_Activity_1D',
-        'Target_Working_Day_1D',
-        'Target_Difficult_Behavioral_Day_1D',
+        target_names.extend(
+            _nan_targets(
+                horizon
+            ).keys()
+        )
 
-        'Target_High_Stress_7D',
-        'Target_Moderate_or_High_Stress_7D',
-        'Target_Low_Sleep_7D',
-        'Target_Very_Low_Sleep_7D',
-        'Target_High_Social_Activity_7D',
-        'Target_Moderate_or_High_Social_Activity_7D',
-        'Target_Working_Day_7D',
-        'Target_Difficult_Behavioral_Day_7D',
-
-        'Target_High_Stress_30D',
-        'Target_Moderate_or_High_Stress_30D',
-        'Target_Low_Sleep_30D',
-        'Target_Very_Low_Sleep_30D',
-        'Target_High_Social_Activity_30D',
-        'Target_Moderate_or_High_Social_Activity_30D',
-        'Target_Working_Day_30D',
-        'Target_Difficult_Behavioral_Day_30D',
-
-        # -------------------------------------------------
-        # Events
-        # -------------------------------------------------
-
-        'Target_Has_Event_1D',
-        'Target_Multiple_Events_1D',
-        'Target_Has_Special_Event_1D',
-
-        'Target_Has_Event_7D',
-        'Target_Multiple_Events_7D',
-        'Target_Has_Special_Event_7D',
-
-        'Target_Has_Event_30D',
-        'Target_Multiple_Events_30D',
-        'Target_Has_Special_Event_30D',
-
-        # -------------------------------------------------
-        # Financial - current raw targets
-        # -------------------------------------------------
-
-        'Target_Has_Expense',
-        'Target_Has_Income',
-        'Target_Positive_Balance',
-        'Target_High_Expense',
-
-        # -------------------------------------------------
-        # Health
-        # -------------------------------------------------
-
-        'Target_Health_Problem_1D',
-        'Target_High_Health_Severity_1D',
-        'Target_Low_Energy_1D',
-        'Target_Significant_Health_Day_1D',
-
-        'Target_Health_Problem_7D',
-        'Target_High_Health_Severity_7D',
-        'Target_Low_Energy_7D',
-        'Target_Significant_Health_Day_7D',
-
-        'Target_Health_Problem_30D',
-        'Target_High_Health_Severity_30D',
-        'Target_Low_Energy_30D',
-        'Target_Significant_Health_Day_30D',
-
-        # -------------------------------------------------
-        # Location
-        # -------------------------------------------------
-
-        'Target_Has_Location_1D',
-        'Target_Location_Changed_1D',
-        'Target_Same_Location_1D',
-        'Target_Location_1D',
-
-        'Target_Has_Location_7D',
-        'Target_Location_Changed_7D',
-        'Target_Same_Location_7D',
-        'Target_Location_7D',
-
-        'Target_Has_Location_30D',
-        'Target_Location_Changed_30D',
-        'Target_Same_Location_30D',
-        'Target_Location_30D',
-
-        # -------------------------------------------------
-        # Patterns
-        # -------------------------------------------------
-
-        'Target_Busy_Day_1D',
-        'Target_Financial_Activity_1D',
-        'Target_Difficult_Day_1D',
-        'Target_Active_Day_1D',
-        'Target_Travel_Day_1D',
-        'Target_Special_Day_1D',
-
-        'Target_Busy_Day_7D',
-        'Target_Financial_Activity_7D',
-        'Target_Difficult_Day_7D',
-        'Target_Active_Day_7D',
-        'Target_Travel_Day_7D',
-        'Target_Special_Day_7D',
-
-        'Target_Busy_Day_30D',
-        'Target_Financial_Activity_30D',
-        'Target_Difficult_Day_30D',
-        'Target_Active_Day_30D',
-        'Target_Travel_Day_30D',
-        'Target_Special_Day_30D',
-
-        # -------------------------------------------------
-        # Travel
-        # -------------------------------------------------
-
-        'Target_Travel_Day_1D',
-        'Target_Travel_Day_7D',
-        'Target_Travel_Day_30D',
-    ]
-
-
+    return target_names
+    
 # =========================================================
-# VALIDATION
+# TARGET DATASET VALIDATION
 # =========================================================
 
 def validate_target_dataset(
@@ -636,15 +956,119 @@ def validate_target_dataset(
 ):
     """
     Validate the generated Target Dataset.
+
+    Validation includes:
+
+        1. Dataset is not None.
+        2. Every row contains a Date.
+        3. Rows are chronologically ordered.
+        4. Every row has exactly the same columns.
+        5. Date exists as a required column.
+
+    When an inconsistent row is found, the validator
+    explicitly reports missing and extra columns.
     """
 
+    # -----------------------------------------------------
+    # Dataset existence
+    # -----------------------------------------------------
+
     if target_dataset is None:
+
         raise ValueError(
             'Target dataset is None.'
         )
 
     if not target_dataset:
+
         return target_dataset
+
+    # -----------------------------------------------------
+    # Validate Date values
+    # -----------------------------------------------------
+
+    dates = [
+        row.get('Date')
+        for row in target_dataset
+    ]
+
+    if any(
+        date is None
+        for date in dates
+    ):
+
+        raise ValueError(
+            'Target dataset contains a row '
+            'without Date.'
+        )
+
+    # -----------------------------------------------------
+    # Chronological ordering
+    # -----------------------------------------------------
+
+    if dates != sorted(dates):
+
+        raise ValueError(
+            'Target dataset is not '
+            'chronologically ordered.'
+        )
+
+    # -----------------------------------------------------
+    # Expected structure
+    # -----------------------------------------------------
+
+    expected_columns = set(
+        target_dataset[0].keys()
+    )
+
+    # -----------------------------------------------------
+    # Validate every row
+    # -----------------------------------------------------
+
+    for index, row in enumerate(
+        target_dataset
+    ):
+
+        actual_columns = set(
+            row.keys()
+        )
+
+        if actual_columns != expected_columns:
+
+            missing_columns = (
+                expected_columns
+                - actual_columns
+            )
+
+            extra_columns = (
+                actual_columns
+                - expected_columns
+            )
+
+            raise ValueError(
+                f'Target row {index} has an '
+                'inconsistent column structure.\n'
+                f'Missing columns: '
+                f'{sorted(missing_columns)}\n'
+                f'Extra columns: '
+                f'{sorted(extra_columns)}'
+            )
+
+    # -----------------------------------------------------
+    # Required Date column
+    # -----------------------------------------------------
+
+    if 'Date' not in expected_columns:
+
+        raise ValueError(
+            'Target dataset does not contain Date.'
+        )
+
+    return target_dataset
+
+    # -----------------------------------------------------
+    # Validate dates
+    # -----------------------------------------------------
 
     dates = [
         row.get('Date')
@@ -661,17 +1085,17 @@ def validate_target_dataset(
         )
 
     # -----------------------------------------------------
-    # Ensure chronological ordering
+    # Chronological ordering
     # -----------------------------------------------------
 
     if dates != sorted(dates):
-
         raise ValueError(
-            'Target dataset is not chronologically ordered.'
+            'Target dataset is not '
+            'chronologically ordered.'
         )
 
     # -----------------------------------------------------
-    # Ensure all rows have the same structure
+    # Same structure for all rows
     # -----------------------------------------------------
 
     expected_columns = set(
@@ -688,23 +1112,46 @@ def validate_target_dataset(
 
         if actual_columns != expected_columns:
 
-            raise ValueError(
-                f'Target row {index} has an '
-                'inconsistent column structure.'
-            )
+            missing_columns = (
+            expected_columns
+            - actual_columns
+        )
 
+        extra_columns = (
+            actual_columns
+            - expected_columns
+        )
+
+        raise ValueError(
+            f'Target row {index} has an '
+            'inconsistent column structure.\n'
+            f'Missing columns: '
+            f'{sorted(missing_columns)}\n'
+            f'Extra columns: '
+            f'{sorted(extra_columns)}'
+        )
+
+        # -----------------------------------------------------
+        # Required Date column
+        # -----------------------------------------------------
+
+    if 'Date' not in expected_columns:
+            raise ValueError(
+                'Target dataset does not contain Date.'
+            )
     return target_dataset
 
+        # =========================================================
 
-# =========================================================
-# DEBUG SUMMARY
-# =========================================================
+        # DEBUG SUMMARY
+
+        # =========================================================
 
 def print_target_summary(
     target_dataset,
-):
+    ):
     """
-    Print a compact summary of the generated Targets.
+    Print a compact summary of generated targets.
     """
 
     if not target_dataset:
@@ -727,20 +1174,25 @@ def print_target_summary(
     )
 
     print(
-        f'Total rows: {len(target_dataset)}'
+        f'Total rows: '
+        f'{len(target_dataset)}'
     )
 
     print(
-        f'Total target columns: {len(columns)}'
+        f'Total target columns: '
+        f'{len(columns)}'
     )
 
-    print()
+    # =====================================================
+    # DAILY TARGETS
+    # =====================================================
 
-    for horizon in (
-        '1D',
-        '7D',
-        '30D',
-    ):
+    print()
+    print(
+        '========== DAILY TARGETS =========='
+    )
+
+    for horizon in DAILY_HORIZONS:
 
         horizon_columns = [
             column
@@ -753,9 +1205,8 @@ def print_target_summary(
         if not horizon_columns:
             continue
 
-        print(
-            f'========== {horizon} =========='
-        )
+        available_values = 0
+        missing_values = 0
 
         for column in horizon_columns:
 
@@ -770,98 +1221,161 @@ def print_target_summary(
                 for value in values
             )
 
-            missing = (
+            available_values += available
+
+            missing_values += (
                 len(values)
                 - available
             )
 
-            print(
-                f'{column}: '
-                f'available={available}, '
-                f'missing={missing}'
-            )
+        print(
+            f'{horizon}: '
+            f'columns={len(horizon_columns)}, '
+            f'available={available_values}, '
+            f'missing={missing_values}'
+        )
 
-        print()
-
-
-# =========================================================
-# SIMPLE TEST / DEBUG
-# =========================================================
-
-if __name__ == '__main__':
+    # =====================================================
+    # PERIOD TARGETS
+    # =====================================================
 
     print()
     print(
-        '========== TARGET BUILD TEST =========='
+        '========== PERIOD TARGETS =========='
     )
 
-    dataset = build_target_dataset()
+    for horizon in PERIOD_HORIZONS:
 
-    if not dataset:
+        horizon_columns = [
+            column
+            for column in columns
+            if column.endswith(
+                f'_{horizon}'
+            )
+        ]
 
-        print(
-            'Target dataset is empty.'
-        )
+        if not horizon_columns:
+            continue
 
-    else:
+        available_values = 0
+        missing_values = 0
 
-        validate_target_dataset(
-            dataset
-        )
+        for column in horizon_columns:
 
-        print(
-            f'Total rows: {len(dataset)}'
-        )
+            values = [
+                row.get(column)
+                for row in target_dataset
+            ]
 
-        print(
-            f'Total columns: '
-            f'{len(dataset[0])}'
-        )
-
-        print()
-
-        print(
-            'Date range:'
-        )
-
-        print(
-            f"From: {dataset[0]['Date']}"
-        )
-
-        print(
-            f"To:   {dataset[-1]['Date']}"
-        )
-
-        print_target_summary(
-            dataset
-        )
-
-        print()
-
-        print(
-            '========== FIRST ROW =========='
-        )
-
-        for key, value in dataset[0].items():
-
-            print(
-                f'{key}: {value}'
+            available = sum(
+                value is not None
+                and value == value
+                for value in values
             )
 
-        print()
+            available_values += available
 
-        print(
-            '========== LAST ROW =========='
-        )
-
-        for key, value in dataset[-1].items():
-
-            print(
-                f'{key}: {value}'
+            missing_values += (
+                len(values)
+                - available
             )
 
-        print()
-
         print(
-            '========== TARGET BUILD PASSED =========='
+            f'{horizon}: '
+            f'columns={len(horizon_columns)}, '
+            f'available={available_values}, '
+            f'missing={missing_values}'
         )
+
+    print()
+
+    # =========================================================
+
+    # SIMPLE TEST / DEBUG
+
+    # =========================================================
+
+if __name__ == '__main__':
+
+        print()
+        print(
+            '========== TARGET BUILD TEST =========='
+        )
+
+        dataset = build_target_dataset()
+
+        if not dataset:
+
+            print(
+                'Target dataset is empty.'
+            )
+
+        else:
+
+            validate_target_dataset(
+                dataset
+            )
+
+            print(
+                f'Total rows: '
+                f'{len(dataset)}'
+            )
+
+            print(
+                f'Total columns: '
+                f'{len(dataset[0])}'
+            )
+
+            print()
+
+            print(
+                'Date range:'
+            )
+
+            print(
+                f"From: "
+                f"{dataset[0]['Date']}"
+            )
+
+            print(
+                f"To:   "
+                f"{dataset[-1]['Date']}"
+            )
+
+            print_target_summary(
+                dataset
+            )
+
+            print()
+
+            print(
+                '========== FIRST ROW =========='
+            )
+
+            for key, value in (
+                dataset[0].items()
+            ):
+
+                print(
+                    f'{key}: {value}'
+                )
+
+            print()
+
+            print(
+                '========== LAST ROW =========='
+            )
+
+            for key, value in (
+                dataset[-1].items()
+            ):
+
+                print(
+                    f'{key}: {value}'
+                )
+
+            print()
+
+            print(
+                '========== TARGET BUILD PASSED =========='
+            )

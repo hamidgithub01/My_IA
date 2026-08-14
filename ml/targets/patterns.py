@@ -3,65 +3,161 @@
 # =========================================================
 
 
+# =========================================================
+# SAFE VALUE HELPERS
+# =========================================================
+
 def _get_expense_total(row):
-    return float(
-        row.get('Expense_Total')
-        or 0.0
-    )
+    """
+    Safely extract expense total.
+    """
+
+    try:
+        return float(
+            row.get('Expense_Total')
+            or 0.0
+        )
+
+    except (
+        TypeError,
+        ValueError,
+    ):
+        return 0.0
 
 
 def _get_income_total(row):
-    return float(
-        row.get('Income_Total')
-        or 0.0
-    )
+    """
+    Safely extract income total.
+    """
+
+    try:
+        return float(
+            row.get('Income_Total')
+            or 0.0
+        )
+
+    except (
+        TypeError,
+        ValueError,
+    ):
+        return 0.0
 
 
 def _get_event_count(row):
-    return int(
-        row.get('Event_Count')
-        or 0
-    )
+    """
+    Safely extract event count.
+    """
+
+    try:
+        return int(
+            row.get('Event_Count')
+            or 0
+        )
+
+    except (
+        TypeError,
+        ValueError,
+    ):
+        return 0
 
 
 def _get_activity_count(row):
-    return int(
-        row.get('Activity_Count')
-        or 0
-    )
+    """
+    Safely extract activity count.
+    """
+
+    try:
+        return int(
+            row.get('Activity_Count')
+            or 0
+        )
+
+    except (
+        TypeError,
+        ValueError,
+    ):
+        return 0
 
 
 def _get_activity_duration(row):
-    return float(
-        row.get(
-            'Activity_Duration_Minutes'
+    """
+    Safely extract activity duration.
+    """
+
+    try:
+        return float(
+            row.get(
+                'Activity_Duration_Minutes'
+            )
+            or 0.0
         )
-        or 0.0
-    )
+
+    except (
+        TypeError,
+        ValueError,
+    ):
+        return 0.0
 
 
 def _get_stress_level(row):
-    return float(
-        row.get('Stress_Level')
-        or 0.0
-    )
+    """
+    Safely extract stress level.
+    """
+
+    try:
+        return float(
+            row.get('Stress_Level')
+            or 0.0
+        )
+
+    except (
+        TypeError,
+        ValueError,
+    ):
+        return 0.0
 
 
 def _get_sleep_hours(row):
-    return float(
-        row.get('Sleep_Hours')
-        or 0.0
-    )
+    """
+    Safely extract sleep hours.
+    """
+
+    try:
+        return float(
+            row.get('Sleep_Hours')
+            or 0.0
+        )
+
+    except (
+        TypeError,
+        ValueError,
+    ):
+        return 0.0
 
 
 def _get_health_records(row):
-    return int(
-        row.get('Health_Record_Count')
-        or 0
-    )
+    """
+    Safely extract health record count.
+    """
+
+    try:
+        return int(
+            row.get('Health_Record_Count')
+            or 0
+        )
+
+    except (
+        TypeError,
+        ValueError,
+    ):
+        return 0
 
 
 def _get_travel(row):
+    """
+    Safely extract travel status.
+    """
+
     return str(
         row.get('Travel')
         or ''
@@ -69,6 +165,10 @@ def _get_travel(row):
 
 
 def _has_special_event(row):
+    """
+    Determine whether a special event exists.
+    """
+
     return bool(
         str(
             row.get('Special_Event')
@@ -84,6 +184,13 @@ def _has_special_event(row):
 def _is_busy_day(row):
     """
     Determine whether one day was particularly busy.
+
+    A day is considered busy when at least one of the
+    following conditions is satisfied:
+
+        - 2 or more events
+        - 2 or more activities
+        - 120 or more minutes of activity
     """
 
     event_count = _get_event_count(row)
@@ -114,6 +221,13 @@ def _is_difficult_day(row):
     """
     Determine whether the day contained notable
     behavioral or health difficulty.
+
+    A difficult day occurs when at least one of the
+    following conditions is satisfied:
+
+        - stress >= 7
+        - sleep < 6 hours
+        - at least one health record
     """
 
     stress_level = _get_stress_level(row)
@@ -166,6 +280,13 @@ def _is_special_day(row):
     """
     Determine whether the day had notable special
     characteristics.
+
+    A special day occurs when at least one of the
+    following conditions is satisfied:
+
+        - special event exists
+        - travel occurs
+        - 2 or more events occur
     """
 
     return (
@@ -176,56 +297,88 @@ def _is_special_day(row):
 
 
 # =========================================================
-# SINGLE-DAY PATTERN TARGETS
+# DAILY PATTERN TARGETS
 # =========================================================
 
-def create_pattern_targets_1d(
+def create_pattern_targets_daily(
     future_row,
+    horizon_name,
 ):
     """
-    Create pattern targets for the next day.
+    Create pattern targets for one exact future day.
 
-    future_row represents T + 1.
+    Examples:
+
+        1D -> T + 1
+        2D -> T + 2
+        3D -> T + 3
+        4D -> T + 4
+        5D -> T + 5
+        6D -> T + 6
+        7D -> T + 7
     """
+
+    if not future_row:
+
+        return {
+
+            f'Target_Busy_Day_{horizon_name}':
+                float('nan'),
+
+            f'Target_Financial_Activity_{horizon_name}':
+                float('nan'),
+
+            f'Target_Difficult_Day_{horizon_name}':
+                float('nan'),
+
+            f'Target_Active_Day_{horizon_name}':
+                float('nan'),
+
+            f'Target_Travel_Day_{horizon_name}':
+                float('nan'),
+
+            f'Target_Special_Day_{horizon_name}':
+                float('nan'),
+        }
 
     return {
 
-        'Target_Busy_Day_1D':
+        f'Target_Busy_Day_{horizon_name}':
             int(
                 _is_busy_day(
                     future_row
                 )
             ),
 
-        'Target_Financial_Activity_1D':
+        f'Target_Financial_Activity_{horizon_name}':
             int(
                 _has_financial_activity(
                     future_row
                 )
             ),
 
-        'Target_Difficult_Day_1D':
+        f'Target_Difficult_Day_{horizon_name}':
             int(
                 _is_difficult_day(
                     future_row
                 )
             ),
 
-        'Target_Active_Day_1D':
+        f'Target_Active_Day_{horizon_name}':
             int(
                 _is_active_day(
                     future_row
                 )
             ),
 
-        'Target_Travel_Day_1D':
+        f'Target_Travel_Day_{horizon_name}':
             int(
                 _is_travel_day(
                     future_row
                 )
             ),
 
-        'Target_Special_Day_1D':
+        f'Target_Special_Day_{horizon_name}':
             int(
                 _is_special_day(
                     future_row
@@ -235,18 +388,32 @@ def create_pattern_targets_1d(
 
 
 # =========================================================
-# MULTI-DAY PATTERN TARGETS
+# PERIOD PATTERN TARGETS
 # =========================================================
 
-def create_pattern_targets_multi_day(
+def create_pattern_targets_period(
     future_rows,
     horizon_name,
 ):
     """
     Create pattern targets for a future period.
 
-    A target is 1 when the corresponding pattern
-    occurs on at least one future day.
+    A period target becomes 1 when the corresponding
+    pattern occurs on at least one day within the period.
+
+    Supported periods:
+
+        8_15D
+            T + 8 ... T + 15
+
+        16_30D
+            T + 16 ... T + 30
+
+        30D
+            T + 1 ... T + 30
+
+    These period targets summarize the period and do not
+    replace the detailed daily targets.
     """
 
     if not future_rows:
@@ -322,7 +489,7 @@ def create_pattern_targets_multi_day(
 
 
 # =========================================================
-# PUBLIC ENTRY POINT
+# PUBLIC PATTERN TARGETS
 # =========================================================
 
 def create_pattern_targets(
@@ -332,66 +499,75 @@ def create_pattern_targets(
     """
     Public Pattern Target Engineering entry point.
 
-    Parameters
-    ----------
-    future_rows : list[dict]
-        Future rows belonging to the requested horizon.
+    Daily horizons:
 
-    horizon_name : str
-        '1D', '7D', or '30D'.
+        1D
+        2D
+        3D
+        4D
+        5D
+        6D
+        7D
 
-    Returns
-    -------
-    dict
-        Pattern targets for the requested horizon.
+    Period horizons:
+
+        8_15D
+        16_30D
+        30D
+
+    Daily horizons represent one exact future day.
+
+    Period horizons summarize a future period.
     """
 
-    # -----------------------------------------------------
-    # 1 DAY
-    # -----------------------------------------------------
+    # =====================================================
+    # DAILY HORIZONS
+    # =====================================================
 
-    if horizon_name == '1D':
+    daily_horizons = {
+        '1D',
+        '2D',
+        '3D',
+        '4D',
+        '5D',
+        '6D',
+        '7D',
+    }
+
+    if horizon_name in daily_horizons:
 
         if not future_rows:
 
-            return {
+            return create_pattern_targets_daily(
+                None,
+                horizon_name,
+            )
 
-                'Target_Busy_Day_1D':
-                    float('nan'),
-
-                'Target_Financial_Activity_1D':
-                    float('nan'),
-
-                'Target_Difficult_Day_1D':
-                    float('nan'),
-
-                'Target_Active_Day_1D':
-                    float('nan'),
-
-                'Target_Travel_Day_1D':
-                    float('nan'),
-
-                'Target_Special_Day_1D':
-                    float('nan'),
-            }
-
-        return create_pattern_targets_1d(
-            future_rows[0]
+        return create_pattern_targets_daily(
+            future_rows[0],
+            horizon_name,
         )
 
-    # -----------------------------------------------------
-    # 7 DAYS / 30 DAYS
-    # -----------------------------------------------------
+    # =====================================================
+    # PERIOD HORIZONS
+    # =====================================================
 
-    if horizon_name in {
-        '7D',
+    period_horizons = {
+        '8_15D',
+        '16_30D',
         '30D',
-    }:
+    }
 
-        return create_pattern_targets_multi_day(
+    if horizon_name in period_horizons:
+
+        return create_pattern_targets_period(
             future_rows,
             horizon_name,
         )
+
+    # =====================================================
+    # INVALID HORIZON
+    # =====================================================
 
     raise ValueError(
         f'Unsupported pattern horizon: '

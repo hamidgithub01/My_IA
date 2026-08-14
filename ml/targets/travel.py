@@ -1,7 +1,12 @@
+
 # =========================================================
 # TRAVEL TARGETS
 # =========================================================
 
+
+# =========================================================
+# SAFE VALUE HELPERS
+# =========================================================
 
 def _get_travel(row):
     """
@@ -16,7 +21,7 @@ def _get_travel(row):
 
 def _is_travel_day(row):
     """
-    Determine whether one day was a travel day.
+    Determine whether one specific day is a travel day.
     """
 
     return _get_travel(row) in {
@@ -27,20 +32,42 @@ def _is_travel_day(row):
 
 
 # =========================================================
-# SINGLE-DAY TRAVEL TARGET
+# DAILY TRAVEL TARGETS
 # =========================================================
 
-def create_travel_targets_1d(
+def create_travel_targets_daily(
     future_row,
+    horizon_name,
 ):
     """
-    Create the travel target for the next day.
+    Create a travel target for one exact future day.
 
-    future_row represents T + 1.
+    Examples:
+
+        1D -> T + 1
+        2D -> T + 2
+        3D -> T + 3
+        ...
+        30D -> T + 30
+
+    The target therefore answers:
+
+        "Is T + N a travel day?"
     """
 
+    target_name = (
+        f'Target_Travel_Day_{horizon_name}'
+    )
+
+    if future_row is None:
+
+        return {
+            target_name:
+                float('nan'),
+        }
+
     return {
-        'Target_Travel_Day_1D':
+        target_name:
             int(
                 _is_travel_day(
                     future_row
@@ -50,18 +77,29 @@ def create_travel_targets_1d(
 
 
 # =========================================================
-# MULTI-DAY TRAVEL TARGETS
+# PERIOD TRAVEL TARGETS
 # =========================================================
 
-def create_travel_targets_multi_day(
+def create_travel_targets_period(
     future_rows,
     horizon_name,
 ):
     """
-    Create travel targets for a future period.
+    Create a travel target for a future period.
 
-    The target is 1 when at least one day in the
-    future period is a travel day.
+    The target is 1 when at least one day inside
+    the supplied period is a travel day.
+
+    Supported period summaries:
+
+        7D_SUMMARY
+            T + 1 ... T + 7
+
+        30D_SUMMARY
+            T + 1 ... T + 30
+
+    These summaries do not replace the individual
+    daily travel targets.
     """
 
     target_name = (
@@ -87,7 +125,7 @@ def create_travel_targets_multi_day(
 
 
 # =========================================================
-# PUBLIC ENTRY POINT
+# PUBLIC TRAVEL TARGETS
 # =========================================================
 
 def create_travel_targets(
@@ -97,50 +135,75 @@ def create_travel_targets(
     """
     Public Travel Target Engineering entry point.
 
-    Parameters
-    ----------
-    future_rows : list[dict]
-        Future rows belonging to the requested horizon.
+    Daily horizons:
 
-    horizon_name : str
-        '1D', '7D', or '30D'.
+        1D
+        2D
+        3D
+        4D
+        5D
+        6D
+        7D
+        8D
+        ...
+        30D
 
-    Returns
-    -------
-    dict
-        Travel target for the requested horizon.
+    Each daily horizon represents exactly one
+    future day.
+
+    Period summary horizons:
+
+        7D_SUMMARY
+        30D_SUMMARY
+
+    The daily targets preserve exact timing.
+
+    The summary targets provide a broader period-level
+    view without replacing the daily information.
     """
 
-    # -----------------------------------------------------
-    # 1 DAY
-    # -----------------------------------------------------
+    # =====================================================
+    # DAILY HORIZONS
+    # =====================================================
 
-    if horizon_name == '1D':
+    daily_horizons = {
+        f'{days}D'
+        for days in range(1, 31)
+    }
+
+    if horizon_name in daily_horizons:
 
         if not future_rows:
 
-            return {
-                'Target_Travel_Day_1D':
-                    float('nan'),
-            }
+            return create_travel_targets_daily(
+                None,
+                horizon_name,
+            )
 
-        return create_travel_targets_1d(
-            future_rows[0]
+        return create_travel_targets_daily(
+            future_rows[0],
+            horizon_name,
         )
 
-    # -----------------------------------------------------
-    # 7 DAYS / 30 DAYS
-    # -----------------------------------------------------
+    # =====================================================
+    # PERIOD SUMMARY HORIZONS
+    # =====================================================
 
-    if horizon_name in {
-        '7D',
-        '30D',
-    }:
+    period_horizons = {
+        '7D_SUMMARY',
+        '30D_SUMMARY',
+    }
 
-        return create_travel_targets_multi_day(
+    if horizon_name in period_horizons:
+
+        return create_travel_targets_period(
             future_rows,
             horizon_name,
         )
+
+    # =====================================================
+    # INVALID HORIZON
+    # =====================================================
 
     raise ValueError(
         f'Unsupported travel horizon: '

@@ -3,9 +3,13 @@
 # =========================================================
 
 
+# =========================================================
+# NORMALIZATION
+# =========================================================
+
 def _normalize_location(value):
     """
-    Normalize a location value safely.
+    Safely normalize a location value.
     """
 
     return str(
@@ -14,98 +18,126 @@ def _normalize_location(value):
 
 
 # =========================================================
-# SINGLE-DAY LOCATION TARGETS
+# HISTORICAL LOCATION
 # =========================================================
 
-def create_location_targets_1d(
+def _get_previous_location(
+    previous_rows,
+):
+    """
+    Return the latest known historical location.
+
+    Only rows before the prediction date should be
+    supplied in previous_rows.
+    """
+
+    if not previous_rows:
+        return ''
+
+    for row in reversed(
+        previous_rows
+    ):
+
+        location = _normalize_location(
+            row.get('Location')
+        )
+
+        if location:
+            return location
+
+    return ''
+
+
+# =========================================================
+# DAILY LOCATION TARGETS
+# =========================================================
+
+def create_location_targets_daily(
     future_row,
+    horizon_name,
     previous_rows=None,
 ):
     """
-    Create location targets for the next day.
+    Create location targets for one specific
+    future day.
 
-    future_row represents T + 1.
+    Examples:
 
-    previous_rows contains only rows before the
-    current target day and is used to determine
-    whether the future location represents a change.
+        1D -> T + 1
+        2D -> T + 2
+        ...
+        7D -> T + 7
+
+    previous_rows contains only historical rows
+    before the current prediction date.
     """
 
     previous_rows = previous_rows or []
+
+    if not future_row:
+
+        return {
+
+            f'Target_Has_Location_{horizon_name}':
+                float('nan'),
+
+            f'Target_Location_Changed_{horizon_name}':
+                float('nan'),
+
+            f'Target_Same_Location_{horizon_name}':
+                float('nan'),
+
+            f'Target_Location_{horizon_name}':
+                None,
+        }
 
     current_location = _normalize_location(
         future_row.get('Location')
     )
 
-    previous_location = ''
-
-    # -----------------------------------------------------
-    # Find the latest known historical location
-    # -----------------------------------------------------
-
-    for historical_row in reversed(
+    previous_location = _get_previous_location(
         previous_rows
-    ):
-
-        historical_location = _normalize_location(
-            historical_row.get('Location')
-        )
-
-        if historical_location:
-
-            previous_location = (
-                historical_location
-            )
-
-            break
-
-    # -----------------------------------------------------
-    # Location targets
-    # -----------------------------------------------------
-
-    has_location = int(
-        bool(current_location)
     )
 
-    location_changed = int(
-        bool(
-            current_location
-            and previous_location
-            and current_location
-            != previous_location
-        )
+    has_location = bool(
+        current_location
     )
 
-    same_location = int(
-        bool(
-            current_location
-            and previous_location
-            and current_location
-            == previous_location
-        )
+    location_changed = bool(
+        current_location
+        and previous_location
+        and current_location
+        != previous_location
+    )
+
+    same_location = bool(
+        current_location
+        and previous_location
+        and current_location
+        == previous_location
     )
 
     return {
 
-        'Target_Has_Location_1D':
-            has_location,
+        f'Target_Has_Location_{horizon_name}':
+            int(has_location),
 
-        'Target_Location_Changed_1D':
-            location_changed,
+        f'Target_Location_Changed_{horizon_name}':
+            int(location_changed),
 
-        'Target_Same_Location_1D':
-            same_location,
+        f'Target_Same_Location_{horizon_name}':
+            int(same_location),
 
-        'Target_Location_1D':
+        f'Target_Location_{horizon_name}':
             current_location or None,
     }
 
 
 # =========================================================
-# MULTI-DAY LOCATION TARGETS
+# PERIOD LOCATION TARGETS
 # =========================================================
 
-def create_location_targets_multi_day(
+def create_location_targets_period(
     future_rows,
     horizon_name,
     previous_rows=None,
@@ -115,25 +147,23 @@ def create_location_targets_multi_day(
 
     Definitions:
 
-        Target_Has_Location
+        Has_Location
             At least one future day has a known location.
 
-        Target_Location_Changed
-            The user changes location during the
-            future period compared with the latest
-            known historical location.
+        Location_Changed
+            At least one future location differs from
+            the latest known historical location.
 
-        Target_Same_Location
-            At least one future day has the same
-            location as the latest known historical
-            location.
+        Same_Location
+            At least one future day uses the same
+            location as the latest historical location.
 
-        Target_Location
-            The most recently observed future location.
+        Location
+            The most recently known location inside
+            the future period.
 
-    The actual location is retained as a categorical
-    target because it can later be used for
-    multi-class prediction.
+    The period target is a summary and does not replace
+    the detailed daily location targets.
     """
 
     previous_rows = previous_rows or []
@@ -155,31 +185,9 @@ def create_location_targets_multi_day(
                 None,
         }
 
-    # -----------------------------------------------------
-    # Find latest historical location
-    # -----------------------------------------------------
-
-    previous_location = ''
-
-    for historical_row in reversed(
+    previous_location = _get_previous_location(
         previous_rows
-    ):
-
-        historical_location = _normalize_location(
-            historical_row.get('Location')
-        )
-
-        if historical_location:
-
-            previous_location = (
-                historical_location
-            )
-
-            break
-
-    # -----------------------------------------------------
-    # Analyze future locations
-    # -----------------------------------------------------
+    )
 
     has_location = False
     location_changed = False
@@ -187,10 +195,10 @@ def create_location_targets_multi_day(
 
     future_locations = []
 
-    for future_row in future_rows:
+    for row in future_rows:
 
         location = _normalize_location(
-            future_row.get('Location')
+            row.get('Location')
         )
 
         if not location:
@@ -202,23 +210,13 @@ def create_location_targets_multi_day(
             location
         )
 
-        # -------------------------------------------------
-        # Compare with historical location
-        # -------------------------------------------------
-
         if previous_location:
 
             if location != previous_location:
-
                 location_changed = True
 
             if location == previous_location:
-
                 same_location = True
-
-    # -----------------------------------------------------
-    # Most recent known future location
-    # -----------------------------------------------------
 
     if future_locations:
 
@@ -247,7 +245,7 @@ def create_location_targets_multi_day(
 
 
 # =========================================================
-# PUBLIC ENTRY POINT
+# PUBLIC LOCATION TARGETS
 # =========================================================
 
 def create_location_targets(
@@ -258,67 +256,80 @@ def create_location_targets(
     """
     Public Location Target Engineering entry point.
 
-    Parameters
-    ----------
-    future_rows : list[dict]
-        Future rows belonging to the requested horizon.
+    Supported daily horizons:
 
-    horizon_name : str
-        '1D', '7D', or '30D'.
+        1D
+        2D
+        3D
+        4D
+        5D
+        6D
+        7D
 
-    previous_rows : list[dict]
-        Historical rows before the prediction date.
+    Supported period horizons:
 
-    Returns
-    -------
-    dict
-        Location targets for the requested horizon.
+        8_15D
+        16_30D
+        30D
+
+    Daily horizons represent one exact future day.
+
+    Period horizons summarize a future period.
     """
 
     previous_rows = previous_rows or []
 
     # -----------------------------------------------------
-    # 1 DAY
+    # DAILY HORIZONS
     # -----------------------------------------------------
 
-    if horizon_name == '1D':
+    daily_horizons = {
+        '1D',
+        '2D',
+        '3D',
+        '4D',
+        '5D',
+        '6D',
+        '7D',
+    }
+
+    if horizon_name in daily_horizons:
 
         if not future_rows:
 
-            return {
+            return create_location_targets_daily(
+                None,
+                horizon_name,
+                previous_rows,
+            )
 
-                'Target_Has_Location_1D':
-                    float('nan'),
-
-                'Target_Location_Changed_1D':
-                    float('nan'),
-
-                'Target_Same_Location_1D':
-                    float('nan'),
-
-                'Target_Location_1D':
-                    None,
-            }
-
-        return create_location_targets_1d(
+        return create_location_targets_daily(
             future_rows[0],
+            horizon_name,
             previous_rows,
         )
 
     # -----------------------------------------------------
-    # 7 DAYS / 30 DAYS
+    # PERIOD HORIZONS
     # -----------------------------------------------------
 
-    if horizon_name in {
-        '7D',
+    period_horizons = {
+        '8_15D',
+        '16_30D',
         '30D',
-    }:
+    }
 
-        return create_location_targets_multi_day(
+    if horizon_name in period_horizons:
+
+        return create_location_targets_period(
             future_rows,
             horizon_name,
             previous_rows,
         )
+
+    # -----------------------------------------------------
+    # INVALID HORIZON
+    # -----------------------------------------------------
 
     raise ValueError(
         f'Unsupported location horizon: '

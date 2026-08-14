@@ -3,15 +3,26 @@
 # =========================================================
 
 
+# =========================================================
+# SAFE VALUE HELPERS
+# =========================================================
+
 def _get_activity_count(row):
     """
     Safely extract activity count from one row.
     """
 
-    return int(
-        row.get('Activity_Count')
-        or 0
-    )
+    try:
+        return int(
+            row.get('Activity_Count')
+            or 0
+        )
+
+    except (
+        TypeError,
+        ValueError,
+    ):
+        return 0
 
 
 def _get_activity_duration(row):
@@ -20,85 +31,151 @@ def _get_activity_duration(row):
     from one row.
     """
 
-    return float(
-        row.get(
-            'Activity_Duration_Minutes'
+    try:
+        return float(
+            row.get(
+                'Activity_Duration_Minutes'
+            )
+            or 0.0
         )
-        or 0.0
+
+    except (
+        TypeError,
+        ValueError,
+    ):
+        return 0.0
+
+
+# =========================================================
+# ACTIVITY CLASSIFICATION
+# =========================================================
+
+def _has_activity(row):
+    """
+    Determine whether any activity occurred.
+    """
+
+    return (
+        _get_activity_count(row) > 0
     )
 
 
-# =========================================================
-# SINGLE-DAY ACTIVITY TARGETS
-# =========================================================
-
-def create_activity_targets_1d(
-    future_row,
-):
+def _is_high_activity(row):
     """
-    Create activity targets for the next day.
+    Determine whether the day contains high activity.
 
-    future_row represents T + 1.
+    High activity means:
 
-    Targets:
+        activity count >= 2
 
-        Target_Has_Activity_1D
-        Target_High_Activity_1D
-        Target_Long_Activity_1D
+    OR
+
+        activity duration >= 120 minutes
     """
 
     activity_count = _get_activity_count(
-        future_row
+        row
     )
 
     activity_duration = _get_activity_duration(
-        future_row
+        row
     )
 
+    return (
+        activity_count >= 2
+        or activity_duration >= 120
+    )
+
+
+def _is_long_activity(row):
+    """
+    Determine whether activity lasted at least
+    60 minutes.
+    """
+
+    return (
+        _get_activity_duration(row)
+        >= 60
+    )
+
+
+# =========================================================
+# DAILY ACTIVITY TARGETS
+# =========================================================
+
+def create_activity_targets_daily(
+    future_row,
+    horizon_name,
+):
+    """
+    Create activity targets for one specific
+    future day.
+
+    Examples:
+
+        1D -> T + 1
+        2D -> T + 2
+        ...
+        7D -> T + 7
+
+    Each future day receives its own independent
+    activity targets.
+    """
+
+    if not future_row:
+
+        return {
+
+            f'Target_Has_Activity_{horizon_name}':
+                float('nan'),
+
+            f'Target_High_Activity_{horizon_name}':
+                float('nan'),
+
+            f'Target_Long_Activity_{horizon_name}':
+                float('nan'),
+        }
+
     return {
-        'Target_Has_Activity_1D':
+
+        f'Target_Has_Activity_{horizon_name}':
             int(
-                activity_count > 0
+                _has_activity(
+                    future_row
+                )
             ),
 
-        'Target_High_Activity_1D':
+        f'Target_High_Activity_{horizon_name}':
             int(
-                activity_count >= 2
-                or activity_duration >= 120
+                _is_high_activity(
+                    future_row
+                )
             ),
 
-        'Target_Long_Activity_1D':
+        f'Target_Long_Activity_{horizon_name}':
             int(
-                activity_duration >= 60
+                _is_long_activity(
+                    future_row
+                )
             ),
     }
 
 
 # =========================================================
-# MULTI-DAY ACTIVITY TARGETS
+# PERIOD ACTIVITY TARGETS
 # =========================================================
 
-def create_activity_targets_multi_day(
+def create_activity_targets_period(
     future_rows,
     horizon_name,
 ):
     """
-    Create activity targets for a future horizon.
+    Create activity targets for a future period.
 
-    Parameters
-    ----------
-    future_rows : list[dict]
-        Rows belonging to the future horizon.
+    Period targets summarize the existence of activity
+    conditions within the supplied period.
 
-    horizon_name : str
-        '7D' or '30D'.
-
-    Returns
-    -------
-    dict
-
-    The targets describe whether activity occurs
-    during the supplied future period.
+    They do not replace the detailed daily targets.
 
     Definitions:
 
@@ -117,6 +194,7 @@ def create_activity_targets_multi_day(
     if not future_rows:
 
         return {
+
             f'Target_Has_Activity_{horizon_name}':
                 float('nan'),
 
@@ -133,27 +211,17 @@ def create_activity_targets_multi_day(
 
     for row in future_rows:
 
-        activity_count = _get_activity_count(
-            row
-        )
-
-        activity_duration = _get_activity_duration(
-            row
-        )
-
-        if activity_count > 0:
+        if _has_activity(row):
             has_activity = True
 
-        if (
-            activity_count >= 2
-            or activity_duration >= 120
-        ):
+        if _is_high_activity(row):
             high_activity = True
 
-        if activity_duration >= 60:
+        if _is_long_activity(row):
             long_activity = True
 
     return {
+
         f'Target_Has_Activity_{horizon_name}':
             int(has_activity),
 
@@ -176,47 +244,75 @@ def create_activity_targets(
     """
     Public Activity Target Engineering entry point.
 
-    For 1D:
+    Supported daily horizons:
 
-        future_rows must contain T + 1.
+        1D
+        2D
+        3D
+        4D
+        5D
+        6D
+        7D
 
-    For 7D:
+    Supported period horizons:
 
-        future_rows contains T + 1 ... T + 7.
+        8_15D
+        16_30D
+        30D
 
-    For 30D:
+    Daily horizons represent one exact future day.
 
-        future_rows contains T + 1 ... T + 30.
+    Period horizons summarize a complete future period.
     """
 
-    if horizon_name == '1D':
+    # -----------------------------------------------------
+    # DAILY HORIZONS
+    # -----------------------------------------------------
+
+    daily_horizons = {
+        '1D',
+        '2D',
+        '3D',
+        '4D',
+        '5D',
+        '6D',
+        '7D',
+    }
+
+    if horizon_name in daily_horizons:
 
         if not future_rows:
 
-            return {
-                'Target_Has_Activity_1D':
-                    float('nan'),
+            return create_activity_targets_daily(
+                None,
+                horizon_name,
+            )
 
-                'Target_High_Activity_1D':
-                    float('nan'),
-
-                'Target_Long_Activity_1D':
-                    float('nan'),
-            }
-
-        return create_activity_targets_1d(
-            future_rows[0]
+        return create_activity_targets_daily(
+            future_rows[0],
+            horizon_name,
         )
 
-    if horizon_name in {
-        '7D',
-        '30D',
-    }:
+    # -----------------------------------------------------
+    # PERIOD HORIZONS
+    # -----------------------------------------------------
 
-        return create_activity_targets_multi_day(
+    period_horizons = {
+        '8_15D',
+        '16_30D',
+        '30D',
+    }
+
+    if horizon_name in period_horizons:
+
+        return create_activity_targets_period(
             future_rows,
             horizon_name,
         )
+
+    # -----------------------------------------------------
+    # INVALID HORIZON
+    # -----------------------------------------------------
 
     raise ValueError(
         f'Unsupported activity horizon: '

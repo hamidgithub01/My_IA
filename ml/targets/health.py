@@ -1,196 +1,236 @@
 # =========================================================
+
 # HEALTH TARGETS
+
 # =========================================================
 
+# =========================================================
 
-def _get_health_impact(row):
+# SAFE VALUE HELPERS
+
+# =========================================================
+
+def _get_health_problem(row):
     """
-    Safely extract health impact.
+    Safely extract the health-problem status.
     """
 
-    return str(
-        row.get('Health_Impact')
-        or ''
+    value = row.get(
+        'Health_Problem'
+    )
+
+    if isinstance(value, bool):
+        return value
+
+    normalized = str(
+        value or ''
     ).strip().lower()
 
-
-def _get_health_status(row):
-    """
-    Safely extract health status.
-    """
-
-    return str(
-        row.get('Health_Status')
-        or ''
-    ).strip().lower()
+    return normalized in {
+        'yes',
+        'true',
+        '1',
+        'problem',
+        'present',
+    }
 
 
 def _get_health_severity(row):
     """
-    Safely extract maximum health severity.
+    Safely extract health severity.
+
+    ```
+    Invalid or missing values are treated as 0.
     """
 
-    return float(
-        row.get('Max_Health_Severity')
-        or row.get('Severity')
-        or 0.0
-    )
+    try:
+
+        return float(
+            row.get(
+                'Health_Severity'
+            )
+            or 0.0
+        )
+
+    except (
+        TypeError,
+        ValueError,
+    ):
+
+        return 0.0
 
 
 def _get_energy_level(row):
     """
-    Safely extract average energy level.
+    Safely extract energy level.
+
+    ```
+    Invalid or missing values are treated as 0.
     """
 
-    return float(
-        row.get('Avg_Energy_Level')
-        or row.get('Energy_Level')
-        or 0.0
-    )
+    try:
+
+        return float(
+            row.get(
+                'Energy_Level'
+            )
+            or 0.0
+        )
+
+    except (
+        TypeError,
+        ValueError,
+    ):
+
+        return 0.0
 
 
 # =========================================================
-# HEALTH CONDITION HELPERS
+
+# HEALTH CLASSIFICATION
+
 # =========================================================
 
-def _has_health_problem(
-    row,
-):
+def _has_health_problem(row):
     """
     Determine whether a health problem exists.
     """
 
-    health_impact = _get_health_impact(
+    
+    return _get_health_problem(
         row
     )
 
-    health_status = _get_health_status(
-        row
-    )
 
-    severity = _get_health_severity(
-        row
-    )
-
-    return (
-        health_impact
-        in {
-            'moderate',
-            'medium',
-            'high',
-        }
-        or health_status
-        in {
-            'sick',
-            'ill',
-            'unwell',
-            'problem',
-            'moderate',
-            'high',
-        }
-        or severity > 0
-    )
-
-
-def _is_high_health_severity(
-    row,
-):
+def _is_high_health_severity(row):
     """
     Determine whether health severity is high.
+
+    ```
+    High severity:
+
+        severity >= 7
     """
 
-    severity = _get_health_severity(
-        row
+    return (
+        _get_health_severity(row)
+        >= 7
     )
 
-    return severity >= 7
 
-
-def _is_low_energy(
-    row,
-):
+def _is_low_energy(row):
     """
     Determine whether energy level is low.
+
+    ```
+    Energy scale:
+
+        0 - 10
+
+    Low energy:
+
+        1 <= energy < 4
+
+    Zero is treated as missing/unknown rather than
+    automatically being classified as low energy.
     """
 
-    energy = _get_energy_level(
+    energy_level = _get_energy_level(
         row
     )
 
     return (
-        energy > 0
-        and energy <= 3
+        energy_level > 0
+        and energy_level < 4
     )
 
 
-def _is_significant_health_day(
-    row,
-):
+def _is_significant_health_day(row):
     """
-    Determine whether the day represents a
-    significant health-related day.
+    Determine whether a day is health-significant.
+
+    ```
+    A significant health day occurs when at least one
+    of the following is present:
+
+        - health problem
+        - high health severity
+        - low energy
     """
-
-    has_problem = _has_health_problem(
-        row
-    )
-
-    severity = _get_health_severity(
-        row
-    )
-
-    low_energy = _is_low_energy(
-        row
-    )
 
     return (
-        has_problem
-        and (
-            severity >= 5
-            or low_energy
-        )
+        _has_health_problem(row)
+        or _is_high_health_severity(row)
+        or _is_low_energy(row)
     )
 
 
 # =========================================================
-# SINGLE-DAY HEALTH TARGETS
+
+# DAILY HEALTH TARGETS
+
 # =========================================================
 
-def create_health_targets_1d(
-    future_row,
+def create_health_targets_daily(
+future_row,
+horizon_name,
 ):
     """
-    Create health targets for the next day.
+    Create health targets for one exact future day.
 
-    future_row represents T + 1.
+    ```
+    Examples:
 
-    The current day T is never used.
+        1D -> T + 1
+        2D -> T + 2
+        ...
+        7D -> T + 7
+
+    The returned targets describe only that specific
+    future day.
     """
+
+    if not future_row:
+
+        return {
+
+            f'Target_Health_Problem_{horizon_name}':
+                float('nan'),
+
+            f'Target_High_Health_Severity_{horizon_name}':
+                float('nan'),
+
+            f'Target_Low_Energy_{horizon_name}':
+                float('nan'),
+
+            f'Target_Significant_Health_Day_{horizon_name}':
+                float('nan'),
+        }
 
     return {
 
-        'Target_Health_Problem_1D':
+        f'Target_Health_Problem_{horizon_name}':
             int(
                 _has_health_problem(
                     future_row
                 )
             ),
 
-        'Target_High_Health_Severity_1D':
+        f'Target_High_Health_Severity_{horizon_name}':
             int(
                 _is_high_health_severity(
                     future_row
                 )
             ),
 
-        'Target_Low_Energy_1D':
+        f'Target_Low_Energy_{horizon_name}':
             int(
                 _is_low_energy(
                     future_row
                 )
             ),
 
-        'Target_Significant_Health_Day_1D':
+        f'Target_Significant_Health_Day_{horizon_name}':
             int(
                 _is_significant_health_day(
                     future_row
@@ -200,29 +240,37 @@ def create_health_targets_1d(
 
 
 # =========================================================
-# MULTI-DAY HEALTH TARGETS
+
+# PERIOD HEALTH TARGETS
+
 # =========================================================
 
-def create_health_targets_multi_day(
-    future_rows,
-    horizon_name,
+def create_health_targets_period(
+future_rows,
+horizon_name,
 ):
+    
     """
     Create health targets for a future period.
 
-    A multi-day target becomes 1 when the corresponding
-    health condition occurs on at least one future day.
+    ```
+    A period target becomes 1 when the corresponding
+    condition occurs on at least one day in the period.
 
-    Example:
+    These targets are summaries.
 
-        7D:
+    They do NOT replace the individual daily targets.
 
-            Health problem:
-            0, 0, 1, 0, 0, 0, 0
+    Examples:
 
-            Target_Health_Problem_7D = 1
+        8_15D
+            summarizes T + 8 ... T + 15
 
-    The current day is never included.
+        16_30D
+            summarizes T + 16 ... T + 30
+
+        30D
+            summarizes T + 1 ... T + 30
     """
 
     if not future_rows:
@@ -249,43 +297,19 @@ def create_health_targets_multi_day(
 
     for row in future_rows:
 
-        # -------------------------------------------------
-        # Health problem
-        # -------------------------------------------------
-
-        if _has_health_problem(
-            row
-        ):
+        if _has_health_problem(row):
 
             health_problem = True
 
-        # -------------------------------------------------
-        # High severity
-        # -------------------------------------------------
-
-        if _is_high_health_severity(
-            row
-        ):
+        if _is_high_health_severity(row):
 
             high_health_severity = True
 
-        # -------------------------------------------------
-        # Low energy
-        # -------------------------------------------------
-
-        if _is_low_energy(
-            row
-        ):
+        if _is_low_energy(row):
 
             low_energy = True
 
-        # -------------------------------------------------
-        # Significant health day
-        # -------------------------------------------------
-
-        if _is_significant_health_day(
-            row
-        ):
+        if _is_significant_health_day(row):
 
             significant_health_day = True
 
@@ -312,72 +336,93 @@ def create_health_targets_multi_day(
             ),
     }
 
-
 # =========================================================
-# PUBLIC ENTRY POINT
+
+# PUBLIC HEALTH TARGETS
+
 # =========================================================
 
 def create_health_targets(
     future_rows,
     horizon_name='1D',
-):
+    ):
     """
     Public Health Target Engineering entry point.
 
-    Parameters
-    ----------
-    future_rows : list[dict]
-        Future rows belonging to the requested horizon.
+    ```
+    Daily horizons:
 
-    horizon_name : str
-        '1D', '7D', or '30D'.
+        1D
+        2D
+        3D
+        4D
+        5D
+        6D
+        7D
 
-    Returns
-    -------
-    dict
-        Health targets for the requested horizon.
+    Period horizons:
+
+        8_15D
+        16_30D
+        30D
+
+    Daily horizons represent one exact future day.
+
+    Period horizons represent aggregated information
+    about a future period.
     """
 
-    # -----------------------------------------------------
-    # 1 DAY
-    # -----------------------------------------------------
+    if future_rows is None:
 
-    if horizon_name == '1D':
+        future_rows = []
 
-        if not future_rows:
+    # =====================================================
+    # DAILY HORIZONS
+    # =====================================================
 
-            return {
+    daily_horizons = {
+        '1D',
+        '2D',
+        '3D',
+        '4D',
+        '5D',
+        '6D',
+        '7D',
+    }
 
-                'Target_Health_Problem_1D':
-                    float('nan'),
+    if horizon_name in daily_horizons:
 
-                'Target_High_Health_Severity_1D':
-                    float('nan'),
-
-                'Target_Low_Energy_1D':
-                    float('nan'),
-
-                'Target_Significant_Health_Day_1D':
-                    float('nan'),
-            }
-
-        return create_health_targets_1d(
+        future_row = (
             future_rows[0]
+            if future_rows
+            else None
         )
 
-    # -----------------------------------------------------
-    # 7 DAYS / 30 DAYS
-    # -----------------------------------------------------
+        return create_health_targets_daily(
+            future_row,
+            horizon_name,
+        )
 
-    if horizon_name in {
-        '7D',
+    # =====================================================
+    # PERIOD HORIZONS
+    # =====================================================
+
+    period_horizons = {
+        '8_15D',
+        '16_30D',
         '30D',
-    }:
+    }
 
-        return create_health_targets_multi_day(
+    if horizon_name in period_horizons:
+
+        return create_health_targets_period(
             future_rows,
             horizon_name,
         )
+
+    # =====================================================
+    # INVALID HORIZON
+    # =====================================================
 
     raise ValueError(
         f'Unsupported health horizon: '
