@@ -1,13 +1,6 @@
+
 from ml.preparation.preparation import (
     get_prepared_dataset,
-)
-
-from ml.features.behavioral import (
-    create_behavioral_features,
-)
-
-from ml.features.contextual import (
-    create_contextual_features,
 )
 
 from ml.features.temporal import (
@@ -62,32 +55,6 @@ def build_feature_row(
 
     features.update(
         create_temporal_features(
-            target_row
-        )
-    )
-
-    # ------------------------------------------------------
-    # Contextual features
-    #
-    # These are only useful when the information is already
-    # known/planned for the target day.
-    # ------------------------------------------------------
-
-    features.update(
-        create_contextual_features(
-            target_row
-        )
-    )
-
-    # ------------------------------------------------------
-    # Behavioral features
-    #
-    # Only values that are legitimately known for the target
-    # day should be used here.
-    # ------------------------------------------------------
-
-    features.update(
-        create_behavioral_features(
             target_row
         )
     )

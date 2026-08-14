@@ -1,4 +1,24 @@
-def encode_binary(value, positive_values):
+
+def normalize_text(value):
+    """
+    Safely normalize a value into lowercase text.
+
+    None and empty values become an empty string.
+    """
+
+    return str(
+        value or ''
+    ).strip().lower()
+
+
+# ==========================================================
+# BINARY ENCODING
+# ==========================================================
+
+def encode_binary(
+    value,
+    positive_values,
+):
     """
     Convert a categorical value into a binary feature.
 
@@ -6,26 +26,33 @@ def encode_binary(value, positive_values):
     otherwise 0.
     """
 
-    if value is None:
-        return 0
+    normalized = normalize_text(
+        value
+    )
 
-    normalized = str(value).strip().lower()
+    positive_values = {
+        str(item).strip().lower()
+        for item in positive_values
+    }
 
     return int(
-        normalized in {
-            str(item).strip().lower()
-            for item in positive_values
-        }
+        normalized in positive_values
     )
 
 
+# ==========================================================
+# DAY TYPE
+# ==========================================================
+
 def encode_day_type(value):
     """
-    Encode the type of day.
-    """
+    Encode historical day type.
 
-    if value is None:
-        return 0
+    Unknown = 0
+    Workday = 1
+    Holiday = 2
+    Weekend = 3
+    """
 
     mapping = {
         'workday': 1,
@@ -35,18 +62,25 @@ def encode_day_type(value):
     }
 
     return mapping.get(
-        str(value).strip().lower(),
+        normalize_text(value),
         0,
     )
 
 
+# ==========================================================
+# WORK STATUS
+# ==========================================================
+
 def encode_work_status(value):
     """
-    Encode work status.
-    """
+    Encode historical work status.
 
-    if value is None:
-        return 0
+    Unknown = 0
+    Working = 1
+    Off = 2
+    Leave = 3
+    Vacation = 4
+    """
 
     mapping = {
         'working': 1,
@@ -57,22 +91,24 @@ def encode_work_status(value):
     }
 
     return mapping.get(
-        str(value).strip().lower(),
+        normalize_text(value),
         0,
     )
 
 
+# ==========================================================
+# HEALTH IMPACT
+# ==========================================================
+
 def encode_health_impact(value):
     """
-    Encode health impact.
+    Encode historical health impact.
 
-    Low = 0
-    Moderate = 1
+    Low / Normal = 0
+    Moderate / Medium = 1
     High = 2
+    Unknown = 0
     """
-
-    if value is None:
-        return 0
 
     mapping = {
         'low': 0,
@@ -83,33 +119,43 @@ def encode_health_impact(value):
     }
 
     return mapping.get(
-        str(value).strip().lower(),
+        normalize_text(value),
         0,
     )
 
 
+# ==========================================================
+# TRAVEL
+# ==========================================================
+
 def encode_travel(value):
     """
-    Encode travel information.
+    Encode historical travel information.
     """
 
     return encode_binary(
         value,
-        ['yes', 'true', '1'],
+        [
+            'yes',
+            'true',
+            '1',
+        ],
     )
 
 
+# ==========================================================
+# SOCIAL ACTIVITY
+# ==========================================================
+
 def encode_social_activity(value):
     """
-    Encode social activity.
+    Encode historical social activity.
 
-    None/Low = 0
-    Moderate = 1
+    Low = 0
+    Moderate / Medium = 1
     High = 2
+    Unknown = 0
     """
-
-    if value is None:
-        return 0
 
     mapping = {
         'low': 0,
@@ -119,88 +165,170 @@ def encode_social_activity(value):
     }
 
     return mapping.get(
-        str(value).strip().lower(),
+        normalize_text(value),
         0,
     )
 
 
+# ==========================================================
+# SPECIAL EVENT
+# ==========================================================
+
 def encode_special_event(value):
     """
-    Indicate whether a special event exists.
+    Indicate whether a historical special event exists.
     """
 
-    if value is None:
+    if not normalize_text(value):
         return 0
 
-    return int(
-        bool(str(value).strip())
-    )
+    return 1
 
+
+# ==========================================================
+# LOCATION
+# ==========================================================
 
 def encode_location(value):
     """
-    Indicate whether a location is available.
+    Indicate whether historical location information exists.
 
-    We do not encode the actual location as a number
-    because doing so would create an artificial order.
+    The actual location is intentionally not converted into
+    a number because doing so would create an artificial
+    numerical order.
     """
 
-    if value is None:
+    if not normalize_text(value):
         return 0
 
-    return int(
-        bool(str(value).strip())
-    )
+    return 1
 
+
+# ==========================================================
+# HISTORICAL BEHAVIORAL FEATURES
+# ==========================================================
+
+def create_historical_behavioral_features(
+    historical_row,
+):
+    """
+    Create behavioral features from ONE historical day.
+
+    This function is intentionally designed for historical
+    rows only.
+
+    It must NEVER receive the target day's row.
+
+    The resulting values describe what happened on a previous
+    day and can therefore safely be used to predict a future
+    target day.
+    """
+
+    if not historical_row:
+        return {
+            'Historical_Day_Type_Code': 0,
+            'Historical_Work_Status_Code': 0,
+            'Historical_Health_Impact_Code': 0,
+            'Historical_Travel_Flag': 0,
+            'Historical_Stress_Level': 0.0,
+            'Historical_Sleep_Hours': 0.0,
+            'Historical_Social_Activity_Code': 0,
+            'Historical_Special_Event_Flag': 0,
+            'Historical_Location_Flag': 0,
+        }
+
+    return {
+        'Historical_Day_Type_Code':
+            encode_day_type(
+                historical_row.get(
+                    'Day_Type'
+                )
+            ),
+
+        'Historical_Work_Status_Code':
+            encode_work_status(
+                historical_row.get(
+                    'Work_Status'
+                )
+            ),
+
+        'Historical_Health_Impact_Code':
+            encode_health_impact(
+                historical_row.get(
+                    'Health_Impact'
+                )
+            ),
+
+        'Historical_Travel_Flag':
+            encode_travel(
+                historical_row.get(
+                    'Travel'
+                )
+            ),
+
+        'Historical_Stress_Level':
+            float(
+                historical_row.get(
+                    'Stress_Level'
+                )
+                or 0.0
+            ),
+
+        'Historical_Sleep_Hours':
+            float(
+                historical_row.get(
+                    'Sleep_Hours'
+                )
+                or 0.0
+            ),
+
+        'Historical_Social_Activity_Code':
+            encode_social_activity(
+                historical_row.get(
+                    'Social_Activity'
+                )
+            ),
+
+        'Historical_Special_Event_Flag':
+            encode_special_event(
+                historical_row.get(
+                    'Special_Event'
+                )
+            ),
+
+        'Historical_Location_Flag':
+            encode_location(
+                historical_row.get(
+                    'Location'
+                )
+            ),
+    }
+
+
+# ==========================================================
+# BACKWARD-COMPATIBILITY
+# ==========================================================
 
 def create_behavioral_features(row):
     """
-    Create behavioral features from one prepared daily row.
+    Backward-compatible wrapper.
+
+    IMPORTANT:
+    This function is retained so existing imports do not
+    immediately break.
+
+    New feature-engineering code should NOT call this
+    function with the target row.
+
+    Use:
+
+        create_historical_behavioral_features(
+            historical_row
+        )
+
+    instead.
     """
 
-    return {
-        'Day_Type_Code':
-            encode_day_type(
-                row.get('Day_Type')
-            ),
-
-        'Work_Status_Code':
-            encode_work_status(
-                row.get('Work_Status')
-            ),
-
-        'Health_Impact_Code':
-            encode_health_impact(
-                row.get('Health_Impact')
-            ),
-
-        'Travel_Flag':
-            encode_travel(
-                row.get('Travel')
-            ),
-
-        'Stress_Level':
-            float(
-                row.get('Stress_Level') or 0.0
-            ),
-
-        'Sleep_Hours':
-            float(
-                row.get('Sleep_Hours') or 0.0
-            ),
-
-        'Social_Activity_Code':
-            encode_social_activity(
-                row.get('Social_Activity')
-            ),
-
-        'Special_Event_Flag':
-            encode_special_event(
-                row.get('Special_Event')
-            ),
-
-        'Location_Flag':
-            encode_location(
-                row.get('Location')
-            ),
-    }
+    return create_historical_behavioral_features(
+        row
+    )
