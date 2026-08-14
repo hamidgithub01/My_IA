@@ -99,7 +99,7 @@ def prepare_days():
 
 def prepare_expenses():
     """
-    Prepare expense records.
+    Prepare actual expense records.
     """
 
     records = get_all_expenses()
@@ -143,7 +143,7 @@ def prepare_expenses():
 
 def prepare_income():
     """
-    Prepare income records.
+    Prepare actual income records.
     """
 
     records = get_all_income()
@@ -191,7 +191,7 @@ def prepare_income():
 
 def prepare_events():
     """
-    Prepare event records.
+    Prepare actual event records.
 
     Events remain individual records at this stage.
     """
@@ -570,13 +570,14 @@ def prepare_travel():
 
 def prepare_plans():
     """
-    Prepare plan records.
+    Prepare planned future or scheduled records.
 
-    Plans remain individual records at this stage.
+    Plans represent known intentions or expected events.
+    They are NOT actual transactions merely because they exist.
 
-    Actual values are preserved because they are part of the
-    historical record, but they must not automatically be used
-    as future-looking features during Feature Engineering.
+    Actual_Date and Actual_Cost are preserved for historical
+    comparison, but Feature Engineering must distinguish them
+    from future planned information.
     """
 
     records = get_all_plans()
@@ -595,6 +596,14 @@ def prepare_plans():
         actual_date = clean_date(
             record.get('Actual_Date')
         )
+
+        duration_days = clean_numeric(
+            record.get('Duration_Days'),
+            default=1.0,
+        )
+
+        if duration_days is None or duration_days < 1:
+            duration_days = 1.0
 
         prepared.append({
             'Plan_ID':
@@ -621,10 +630,7 @@ def prepare_plans():
                 ),
 
             'Duration_Days':
-                clean_numeric(
-                    record.get('Duration_Days'),
-                    default=1.0,
-                ),
+                duration_days,
 
             'Importance':
                 clean_text(
@@ -661,10 +667,21 @@ def prepare_plans():
 
 def prepare_recurring():
     """
-    Prepare recurring records.
+    Prepare recurring rules.
 
-    Recurring records describe rules that may generate
-    expected financial activity on specific calendar dates.
+    A recurring record is a RULE describing something expected
+    to happen repeatedly.
+
+    It is NOT an actual expense or income record.
+
+    Examples:
+        - monthly rent
+        - monthly subscription
+        - weekly payment
+        - regular income
+        - yearly recurring obligation
+
+    The actual occurrence must remain separate from the rule.
     """
 
     records = get_all_recurring()
@@ -775,9 +792,11 @@ def aggregate_expenses_by_date(expenses):
 
         expense_date = expense['Date']
 
+        amount = expense['Amount'] or 0.0
+
         result[expense_date][
             'expense_total'
-        ] += expense['Amount']
+        ] += amount
 
         result[expense_date][
             'expense_count'
@@ -799,9 +818,11 @@ def aggregate_income_by_date(income):
 
         income_date = record['Date']
 
+        amount = record['Amount'] or 0.0
+
         result[income_date][
             'income_total'
-        ] += record['Amount']
+        ] += amount
 
         result[income_date][
             'income_count'
@@ -853,18 +874,25 @@ def aggregate_health_by_date(records):
             'health_record_count'
         ] += 1
 
-        result[record_date][
-            'max_health_severity'
-        ] = max(
+        severity = record['Severity']
+
+        if severity is not None:
+
             result[record_date][
                 'max_health_severity'
-            ],
-            record['Severity'],
-        )
+            ] = max(
+                result[record_date][
+                    'max_health_severity'
+                ],
+                severity,
+            )
 
-        energy_values[record_date].append(
-            record['Energy_Level']
-        )
+        energy = record['Energy_Level']
+
+        if energy is not None:
+            energy_values[
+                record_date
+            ].append(energy)
 
     for record_date, values in energy_values.items():
 
@@ -899,17 +927,23 @@ def aggregate_activities_by_date(activities):
             'activity_count'
         ] += 1
 
+        duration = (
+            activity['Duration_Minutes']
+            or 0.0
+        )
+
+        cost = (
+            activity['Activity_Cost']
+            or 0.0
+        )
+
         result[activity_date][
             'activity_duration_minutes'
-        ] += activity[
-            'Duration_Minutes'
-        ]
+        ] += duration
 
         result[activity_date][
             'activity_cost'
-        ] += activity[
-            'Activity_Cost'
-        ]
+        ] += cost
 
     return dict(result)
 
@@ -939,21 +973,31 @@ def aggregate_sleep_by_date(sleep_records):
             'sleep_record_count'
         ] += 1
 
+        duration = (
+            record['Duration_Minutes']
+            or 0.0
+        )
+
+        awakenings = (
+            record['Awakenings']
+            or 0.0
+        )
+
         result[sleep_date][
             'sleep_duration_minutes'
-        ] += record[
-            'Duration_Minutes'
-        ]
+        ] += duration
 
         result[sleep_date][
             'total_awakenings'
-        ] += record[
-            'Awakenings'
-        ]
+        ] += awakenings
 
-        quality_values[sleep_date].append(
-            record['Sleep_Quality']
-        )
+        quality = record['Sleep_Quality']
+
+        if quality is not None:
+
+            quality_values[
+                sleep_date
+            ].append(quality)
 
     for sleep_date, values in quality_values.items():
 
@@ -989,17 +1033,23 @@ def aggregate_plans_by_date(plans):
             'plan_count'
         ] += 1
 
+        expected_cost = (
+            plan['Expected_Cost']
+            or 0.0
+        )
+
+        duration_days = (
+            plan['Duration_Days']
+            or 1.0
+        )
+
         result[plan_date][
             'plan_expected_cost'
-        ] += plan[
-            'Expected_Cost'
-        ]
+        ] += expected_cost
 
         result[plan_date][
             'plan_duration_days'
-        ] += plan[
-            'Duration_Days'
-        ]
+        ] += duration_days
 
         importance = (
             plan['Importance'] or ''
@@ -1010,9 +1060,80 @@ def aggregate_plans_by_date(plans):
             'urgent',
             'critical',
         }:
+
             result[plan_date][
                 'high_importance_plan_count'
             ] += 1
+
+    return dict(result)
+
+
+def expand_plans_by_date(plans):
+    """
+    Expand plans across their planned duration.
+
+    This does NOT create actual transactions.
+
+    It only indicates that a planned event remains relevant
+    on each day of its planned duration.
+    """
+
+    result = defaultdict(
+        lambda: {
+            'active_plan_count': 0,
+            'active_plan_expected_cost': 0.0,
+            'active_high_importance_plan_count': 0,
+        }
+    )
+
+    for plan in plans:
+
+        start_date = plan['Plan_Date']
+
+        duration_days = int(
+            max(
+                1,
+                plan['Duration_Days'] or 1,
+            )
+        )
+
+        expected_cost = (
+            plan['Expected_Cost']
+            or 0.0
+        )
+
+        importance = (
+            plan['Importance'] or ''
+        ).strip().lower()
+
+        for offset in range(duration_days):
+
+            current_date = (
+                start_date
+                + timedelta(days=offset)
+            )
+
+            result[current_date][
+                'active_plan_count'
+            ] += 1
+
+            # The expected cost belongs to the plan itself.
+            # It is not multiplied into every day.
+            if offset == 0:
+
+                result[current_date][
+                    'active_plan_expected_cost'
+                ] += expected_cost
+
+            if importance in {
+                'high',
+                'urgent',
+                'critical',
+            }:
+
+                result[current_date][
+                    'active_high_importance_plan_count'
+                ] += 1
 
     return dict(result)
 
@@ -1025,7 +1146,7 @@ def normalize_frequency(value):
     """
     Normalize common recurring frequency names.
 
-    Returns one of:
+    Returns:
 
         daily
         weekly
@@ -1038,14 +1159,14 @@ def normalize_frequency(value):
     if value is None:
         return 'unknown'
 
-    value = str(value).strip().lower()
+    value = str(
+        value
+    ).strip().lower()
 
-    normalized = value.replace(
-        '_',
-        ' ',
-    ).replace(
-        '-',
-        ' ',
+    normalized = (
+        value
+        .replace('_', ' ')
+        .replace('-', ' ')
     )
 
     normalized = ' '.join(
@@ -1094,32 +1215,74 @@ def normalize_frequency(value):
     return 'unknown'
 
 
+def normalize_day_of_week(value):
+    """
+    Normalize day-of-week values.
+
+    Accepted conventions:
+
+        1 = Monday ... 7 = Sunday
+
+    and Python:
+
+        0 = Monday ... 6 = Sunday
+
+    Returns:
+        Python weekday 0-6
+        or None when invalid.
+    """
+
+    if value is None:
+        return None
+
+    try:
+        value = int(value)
+    except (
+        TypeError,
+        ValueError,
+    ):
+        return None
+
+    if 1 <= value <= 7:
+
+        return value - 1
+
+    if 0 <= value <= 6:
+
+        return value
+
+    return None
+
+
 def recurring_is_active_on_date(
     recurring,
     current_date,
 ):
     """
-    Determine whether a recurring record applies
-    to a specific calendar date.
+    Determine whether a recurring rule has an expected
+    occurrence on a specific calendar date.
 
-    Day_Of_Week convention:
-        1 = Monday
-        2 = Tuesday
-        ...
-        7 = Sunday
+    This function represents EXPECTED recurrence only.
 
-    Python-style 0-6 values are also accepted.
+    It does not create an actual expense or income.
     """
 
-    start_date = recurring['Start_Date']
-    end_date = recurring['End_Date']
+    start_date = recurring[
+        'Start_Date'
+    ]
+
+    end_date = recurring[
+        'End_Date'
+    ]
 
     if current_date < start_date:
         return False
 
-    if end_date is not None:
-        if current_date > end_date:
-            return False
+    if (
+        end_date is not None
+        and current_date > end_date
+    ):
+        return False
 
     if not recurring['Is_Active']:
         return False
@@ -1134,17 +1297,14 @@ def recurring_is_active_on_date(
 
     if frequency == 'weekly':
 
-        day_of_week = int(
-            recurring['Day_Of_Week']
+        expected_weekday = (
+            normalize_day_of_week(
+                recurring['Day_Of_Week']
+            )
         )
 
-        if day_of_week < 0:
+        if expected_weekday is None:
             return False
-
-        if 1 <= day_of_week <= 7:
-            expected_weekday = day_of_week - 1
-        else:
-            expected_weekday = day_of_week
 
         return (
             current_date.weekday()
@@ -1153,17 +1313,14 @@ def recurring_is_active_on_date(
 
     if frequency == 'biweekly':
 
-        day_of_week = int(
-            recurring['Day_Of_Week']
+        expected_weekday = (
+            normalize_day_of_week(
+                recurring['Day_Of_Week']
+            )
         )
 
-        if day_of_week < 0:
+        if expected_weekday is None:
             return False
-
-        if 1 <= day_of_week <= 7:
-            expected_weekday = day_of_week - 1
-        else:
-            expected_weekday = day_of_week
 
         if (
             current_date.weekday()
@@ -1189,6 +1346,14 @@ def recurring_is_active_on_date(
         if day_of_month <= 0:
             return False
 
+        # A recurring rule scheduled for day 31 should not
+        # accidentally occur on day 28/30 in shorter months.
+        if day_of_month > monthrange(
+            current_date.year,
+            current_date.month,
+        )[1]:
+            return False
+
         return (
             current_date.day
             == day_of_month
@@ -1203,10 +1368,20 @@ def recurring_is_active_on_date(
         if day_of_month <= 0:
             return False
 
-        return (
+        if (
             current_date.month
-            == start_date.month
-            and current_date.day
+            != start_date.month
+        ):
+            return False
+
+        if day_of_month > monthrange(
+            current_date.year,
+            current_date.month,
+        )[1]:
+            return False
+
+        return (
+            current_date.day
             == day_of_month
         )
 
@@ -1218,12 +1393,21 @@ def aggregate_recurring_by_date(
     dates,
 ):
     """
-    Expand recurring rules onto the supplied calendar dates.
+    Expand recurring rules onto the supplied dates.
 
-    Only recurring occurrences that actually fall on a date
-    are included.
+    Important:
 
-    This function does not create arbitrary future dates.
+    Recurring values represent EXPECTED recurring activity.
+
+    They must NOT be added to:
+        Expense_Total
+        Income_Total
+
+    because those fields represent ACTUAL recorded transactions.
+
+    Recurring dates are evaluated only against the supplied
+    dataset dates. This prevents recurring rules from creating
+    an arbitrary future training horizon.
     """
 
     result = defaultdict(
@@ -1233,7 +1417,6 @@ def aggregate_recurring_by_date(
             'recurring_expense_amount': 0.0,
             'recurring_income_amount': 0.0,
             'fixed_recurring_amount': 0.0,
-            'active_recurring_count': 0,
         }
     )
 
@@ -1246,29 +1429,12 @@ def aggregate_recurring_by_date(
 
     for recurring_record in recurring:
 
-        start_date = recurring_record[
-            'Start_Date'
-        ]
-
-        end_date = recurring_record[
-            'End_Date'
-        ]
+        if not recurring_record[
+            'Is_Active'
+        ]:
+            continue
 
         for current_date in sorted_dates:
-
-            if current_date < start_date:
-                continue
-
-            if (
-                end_date is not None
-                and current_date > end_date
-            ):
-                continue
-
-            if not recurring_record[
-                'Is_Active'
-            ]:
-                continue
 
             if not recurring_is_active_on_date(
                 recurring_record,
@@ -1276,9 +1442,10 @@ def aggregate_recurring_by_date(
             ):
                 continue
 
-            amount = recurring_record[
-                'Amount'
-            ]
+            amount = (
+                recurring_record['Amount']
+                or 0.0
+            )
 
             result[current_date][
                 'recurring_count'
@@ -1299,6 +1466,7 @@ def aggregate_recurring_by_date(
                 'cost',
                 'payment',
             }:
+
                 result[current_date][
                     'recurring_expense_amount'
                 ] += amount
@@ -1308,7 +1476,9 @@ def aggregate_recurring_by_date(
                 'revenues',
                 'revenue',
                 'earning',
+                'earnings',
             }:
+
                 result[current_date][
                     'recurring_income_amount'
                 ] += amount
@@ -1316,11 +1486,55 @@ def aggregate_recurring_by_date(
             if recurring_record[
                 'Is_Fixed_Amount'
             ]:
+
                 result[current_date][
                     'fixed_recurring_amount'
                 ] += amount
 
     return dict(result)
+
+
+# =========================================================
+# DATE RANGE HELPERS
+# =========================================================
+
+def build_historical_date_range(
+    dates,
+):
+    """
+    Build a continuous historical calendar range.
+
+    This is useful because recurring activity can occur on a
+    historical day where no other source has a record.
+
+    Only historical dates are expanded this way.
+    """
+
+    valid_dates = sorted(
+        set(dates)
+    )
+
+    if not valid_dates:
+        return set()
+
+    start_date = valid_dates[0]
+    end_date = valid_dates[-1]
+
+    result = set()
+
+    current_date = start_date
+
+    while current_date <= end_date:
+
+        result.add(
+            current_date
+        )
+
+        current_date += timedelta(
+            days=1
+        )
+
+    return result
 
 
 # =========================================================
@@ -1344,7 +1558,17 @@ def build_daily_dataset():
         plans
         recurring
 
-    Each row represents one calendar day.
+    Design principles:
+
+        1. Actual records remain actual.
+        2. Plans remain planned/expected.
+        3. Recurring remains expected recurring activity.
+        4. Recurring is never added to actual income/expense.
+        5. Historical dates are continuous.
+        6. Future dates are created only by known plans.
+        7. Recurring rules may enrich existing dates, but do not
+           create an unlimited future horizon.
+        8. Plans and recurring can coexist on the same date.
     """
 
     # -----------------------------------------------------
@@ -1367,7 +1591,7 @@ def build_daily_dataset():
     recurring = prepare_recurring()
 
     # -----------------------------------------------------
-    # Aggregate source data
+    # Aggregate actual data
     # -----------------------------------------------------
 
     expenses_by_date = (
@@ -1406,53 +1630,65 @@ def build_daily_dataset():
         )
     )
 
+    # -----------------------------------------------------
+    # Aggregate planned data
+    # -----------------------------------------------------
+
     plans_by_date = (
         aggregate_plans_by_date(
             plans
         )
     )
 
+    active_plans_by_date = (
+        expand_plans_by_date(
+            plans
+        )
+    )
+
     # -----------------------------------------------------
-    # Base dates
+    # Build initial historical dates
     # -----------------------------------------------------
 
-    dates = {
+    historical_dates = set()
+
+    historical_dates.update(
         row['Date']
         for row in days
-    }
+    )
 
-    dates.update(
+    historical_dates.update(
         expense['Date']
         for expense in expenses
     )
 
-    dates.update(
+    historical_dates.update(
         record['Date']
         for record in income
     )
 
-    dates.update(
+    historical_dates.update(
         event['Date']
         for event in events
     )
 
-    dates.update(
+    historical_dates.update(
         record['Date']
         for record in health_records
     )
 
-    dates.update(
+    historical_dates.update(
         activity['Date']
         for activity in activities
     )
 
-    dates.update(
+    historical_dates.update(
         record['Date']
         for record in sleep_records
     )
 
     # -----------------------------------------------------
-    # Travel dates
+    # Travel historical dates
     # -----------------------------------------------------
 
     for travel in travel_records:
@@ -1465,7 +1701,7 @@ def build_daily_dataset():
             travel['End_Date']
         ):
 
-            dates.add(
+            historical_dates.add(
                 current_date
             )
 
@@ -1474,53 +1710,93 @@ def build_daily_dataset():
             )
 
     # -----------------------------------------------------
-    # Plan dates
+    # Continuous historical calendar
     # -----------------------------------------------------
+
+    dates = build_historical_date_range(
+        historical_dates
+    )
+
+    # -----------------------------------------------------
+    # Planned dates
+    #
+    # Plans may legitimately introduce future dates.
+    # We add only the dates explicitly represented by plans.
+    # -----------------------------------------------------
+
+    plan_dates = set()
 
     for plan in plans:
 
-        dates.add(
+        plan_dates.add(
             plan['Plan_Date']
         )
 
-        # Actual_Date is included only when it
-        # represents an already recorded historical date.
+        duration_days = int(
+            max(
+                1,
+                plan['Duration_Days'] or 1,
+            )
+        )
+
+        for offset in range(
+            duration_days
+        ):
+
+            plan_dates.add(
+                plan['Plan_Date']
+                + timedelta(days=offset)
+            )
+
+        # Actual_Date is historical information when available.
         if plan['Actual_Date'] is not None:
 
             dates.add(
                 plan['Actual_Date']
             )
 
+    dates.update(
+        plan_dates
+    )
+
     # -----------------------------------------------------
-    # Recurring dates
+    # Recurring activity
     #
-    # We only evaluate recurring rules against
-    # dates already represented by the dataset.
-    # Therefore recurring rules do not create an
-    # arbitrary future training horizon.
+    # Recurring does NOT create an arbitrary future horizon.
+    #
+    # It is evaluated against:
+    #
+    #   - historical calendar dates
+    #   - known plan dates
+    #
+    # This allows recurring and plans to interact naturally.
     # -----------------------------------------------------
+
+    recurring_evaluation_dates = set(
+        dates
+    )
 
     recurring_by_date = (
         aggregate_recurring_by_date(
             recurring,
-            dates,
+            recurring_evaluation_dates,
         )
     )
 
-    dates.update(
-        recurring_by_date.keys()
-    )
-
     # -----------------------------------------------------
-    # Build rows
+    # Build lookup for actual daily records
     # -----------------------------------------------------
-
-    dataset = []
 
     days_by_date = {
         row['Date']: row
         for row in days
     }
+
+    # -----------------------------------------------------
+    # Build final dataset
+    # -----------------------------------------------------
+
+    dataset = []
 
     for current_date in sorted(
         dates
@@ -1570,18 +1846,15 @@ def build_daily_dataset():
         row = dict(day)
 
         # -------------------------------------------------
-        # Defaults
+        # Actual data
         # -------------------------------------------------
 
         expense_data = (
             expenses_by_date.get(
                 current_date,
                 {
-                    'expense_total':
-                        0.0,
-
-                    'expense_count':
-                        0,
+                    'expense_total': 0.0,
+                    'expense_count': 0,
                 },
             )
         )
@@ -1590,11 +1863,8 @@ def build_daily_dataset():
             income_by_date.get(
                 current_date,
                 {
-                    'income_total':
-                        0.0,
-
-                    'income_count':
-                        0,
+                    'income_total': 0.0,
+                    'income_count': 0,
                 },
             )
         )
@@ -1603,8 +1873,7 @@ def build_daily_dataset():
             events_by_date.get(
                 current_date,
                 {
-                    'event_count':
-                        0,
+                    'event_count': 0,
                 },
             )
         )
@@ -1613,14 +1882,9 @@ def build_daily_dataset():
             health_by_date.get(
                 current_date,
                 {
-                    'health_record_count':
-                        0,
-
-                    'max_health_severity':
-                        0.0,
-
-                    'avg_energy_level':
-                        0.0,
+                    'health_record_count': 0,
+                    'max_health_severity': 0.0,
+                    'avg_energy_level': 0.0,
                 },
             )
         )
@@ -1629,14 +1893,9 @@ def build_daily_dataset():
             activities_by_date.get(
                 current_date,
                 {
-                    'activity_count':
-                        0,
-
-                    'activity_duration_minutes':
-                        0.0,
-
-                    'activity_cost':
-                        0.0,
+                    'activity_count': 0,
+                    'activity_duration_minutes': 0.0,
+                    'activity_cost': 0.0,
                 },
             )
         )
@@ -1645,67 +1904,60 @@ def build_daily_dataset():
             sleep_by_date.get(
                 current_date,
                 {
-                    'sleep_record_count':
-                        0,
-
-                    'sleep_duration_minutes':
-                        0.0,
-
-                    'avg_sleep_quality':
-                        0.0,
-
-                    'total_awakenings':
-                        0.0,
-                },
-            )
-        )
-
-        plan_data = (
-            plans_by_date.get(
-                current_date,
-                {
-                    'plan_count':
-                        0,
-
-                    'plan_expected_cost':
-                        0.0,
-
-                    'plan_duration_days':
-                        0.0,
-
-                    'high_importance_plan_count':
-                        0,
-                },
-            )
-        )
-
-        recurring_data = (
-            recurring_by_date.get(
-                current_date,
-                {
-                    'recurring_count':
-                        0,
-
-                    'recurring_amount':
-                        0.0,
-
-                    'recurring_expense_amount':
-                        0.0,
-
-                    'recurring_income_amount':
-                        0.0,
-
-                    'fixed_recurring_amount':
-                        0.0,
-
-                    'active_recurring_count':
-                        0,
+                    'sleep_record_count': 0,
+                    'sleep_duration_minutes': 0.0,
+                    'avg_sleep_quality': 0.0,
+                    'total_awakenings': 0.0,
                 },
             )
         )
 
         # -------------------------------------------------
-        # Financial
+        # Plans
+        # -------------------------------------------------
+
+        plan_data = (
+            plans_by_date.get(
+                current_date,
+                {
+                    'plan_count': 0,
+                    'plan_expected_cost': 0.0,
+                    'plan_duration_days': 0.0,
+                    'high_importance_plan_count': 0,
+                },
+            )
+        )
+
+        active_plan_data = (
+            active_plans_by_date.get(
+                current_date,
+                {
+                    'active_plan_count': 0,
+                    'active_plan_expected_cost': 0.0,
+                    'active_high_importance_plan_count': 0,
+                },
+            )
+        )
+
+        # -------------------------------------------------
+        # Recurring
+        # -------------------------------------------------
+
+        recurring_data = (
+            recurring_by_date.get(
+                current_date,
+                {
+                    'recurring_count': 0,
+                    'recurring_amount': 0.0,
+                    'recurring_expense_amount': 0.0,
+                    'recurring_income_amount': 0.0,
+                    'fixed_recurring_amount': 0.0,
+                },
+            )
+        )
+
+        # -------------------------------------------------
+        # Actual Financial Data
         # -------------------------------------------------
 
         row.update({
@@ -1802,7 +2054,7 @@ def build_daily_dataset():
                 ],
 
             # -------------------------------------------------
-            # Plans
+            # Plans - explicit date
             # -------------------------------------------------
 
             'Plan_Count':
@@ -1826,7 +2078,26 @@ def build_daily_dataset():
                 ],
 
             # -------------------------------------------------
-            # Recurring
+            # Plans - active duration
+            # -------------------------------------------------
+
+            'Active_Plan_Count':
+                active_plan_data[
+                    'active_plan_count'
+                ],
+
+            'Active_Plan_Expected_Cost':
+                active_plan_data[
+                    'active_plan_expected_cost'
+                ],
+
+            'Active_High_Importance_Plan_Count':
+                active_plan_data[
+                    'active_high_importance_plan_count'
+                ],
+
+            # -------------------------------------------------
+            # Recurring - expected activity
             # -------------------------------------------------
 
             'Recurring_Count':
@@ -1853,11 +2124,6 @@ def build_daily_dataset():
                 recurring_data[
                     'fixed_recurring_amount'
                 ],
-
-            'Active_Recurring_Count':
-                recurring_data[
-                    'active_recurring_count'
-                ],
         })
 
         dataset.append(
@@ -1877,6 +2143,27 @@ def get_prepared_dataset():
 
     Returns a unified daily dataset ready for
     Feature Engineering.
+
+    The dataset keeps a clear separation between:
+
+        Actual:
+            Expense_Total
+            Income_Total
+            Event_Count
+            etc.
+
+        Planned:
+            Plan_Count
+            Plan_Expected_Cost
+            Active_Plan_Count
+            etc.
+
+        Expected recurring:
+            Recurring_Count
+            Recurring_Amount
+            Recurring_Expense_Amount
+            Recurring_Income_Amount
+            Fixed_Recurring_Amount
     """
 
     return build_daily_dataset()

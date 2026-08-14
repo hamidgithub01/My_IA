@@ -56,8 +56,7 @@ def create_temporal_features(row):
 
         'Is_Month_End':
             int(
-                current_date.day
-                == days_in_month
+                current_date.day == days_in_month
             ),
 
         'Week_of_Month':

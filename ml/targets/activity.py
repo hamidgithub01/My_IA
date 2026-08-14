@@ -1,7 +1,9 @@
-# =========================================================
-# ACTIVITY TARGETS
-# =========================================================
-
+from ml.targets.common import (
+    DAILY_HORIZONS,
+    PERIOD_HORIZONS,
+    to_float,
+    to_int,
+)
 
 # =========================================================
 # SAFE VALUE HELPERS
@@ -12,17 +14,9 @@ def _get_activity_count(row):
     Safely extract activity count from one row.
     """
 
-    try:
-        return int(
-            row.get('Activity_Count')
-            or 0
-        )
-
-    except (
-        TypeError,
-        ValueError,
-    ):
-        return 0
+    return to_int(
+        row.get('Activity_Count')
+    )
 
 
 def _get_activity_duration(row):
@@ -31,19 +25,11 @@ def _get_activity_duration(row):
     from one row.
     """
 
-    try:
-        return float(
-            row.get(
-                'Activity_Duration_Minutes'
-            )
-            or 0.0
+    return to_float(
+        row.get(
+            'Activity_Duration_Minutes'
         )
-
-    except (
-        TypeError,
-        ValueError,
-    ):
-        return 0.0
+    )
 
 
 # =========================================================
@@ -269,17 +255,7 @@ def create_activity_targets(
     # DAILY HORIZONS
     # -----------------------------------------------------
 
-    daily_horizons = {
-        '1D',
-        '2D',
-        '3D',
-        '4D',
-        '5D',
-        '6D',
-        '7D',
-    }
-
-    if horizon_name in daily_horizons:
+    if horizon_name in DAILY_HORIZONS:
 
         if not future_rows:
 
@@ -297,13 +273,7 @@ def create_activity_targets(
     # PERIOD HORIZONS
     # -----------------------------------------------------
 
-    period_horizons = {
-        '8_15D',
-        '16_30D',
-        '30D',
-    }
-
-    if horizon_name in period_horizons:
+    if horizon_name in PERIOD_HORIZONS:
 
         return create_activity_targets_period(
             future_rows,

@@ -1,6 +1,10 @@
-# =========================================================
-# EVENT TARGETS
-# =========================================================
+
+from ml.targets.common import (
+    DAILY_HORIZONS,
+    PERIOD_HORIZONS,
+    to_int,
+    normalize_text,
+)
 
 
 # =========================================================
@@ -12,17 +16,9 @@ def _get_event_count(row):
     Safely extract event count from one row.
     """
 
-    try:
-        return int(
-            row.get('Event_Count')
-            or 0
-        )
-
-    except (
-        TypeError,
-        ValueError,
-    ):
-        return 0
+    return to_int(
+        row.get('Event_Count')
+    )
 
 
 def _has_special_event(row):
@@ -30,13 +26,10 @@ def _has_special_event(row):
     Determine whether the row contains a special event.
     """
 
-    special_event = str(
-        row.get('Special_Event')
-        or ''
-    ).strip()
-
     return bool(
-        special_event
+        normalize_text(
+            row.get('Special_Event')
+        )
     )
 
 
@@ -76,24 +69,14 @@ def create_event_targets_daily(
     horizon_name,
 ):
     """
-    Create event targets for one specific
-    future day.
+    Create event targets for one specific future day.
 
-    Examples:
-
-        1D -> T + 1
-        2D -> T + 2
-        ...
-        7D -> T + 7
-
-    Each future day receives independent event
-    targets.
+    Each future day receives independent event targets.
     """
 
     if not future_row:
 
         return {
-
             f'Target_Has_Event_{horizon_name}':
                 float('nan'),
 
@@ -105,7 +88,6 @@ def create_event_targets_daily(
         }
 
     return {
-
         f'Target_Has_Event_{horizon_name}':
             int(
                 _has_event(
@@ -142,25 +124,11 @@ def create_event_targets_period(
 
     A period target becomes 1 when the corresponding
     event condition occurs on at least one future day.
-
-    Definitions:
-
-        Has_Event
-            At least one future day has an event.
-
-        Multiple_Events
-            At least one future day contains
-            two or more events.
-
-        Has_Special_Event
-            At least one future day contains
-            a special event.
     """
 
     if not future_rows:
 
         return {
-
             f'Target_Has_Event_{horizon_name}':
                 float('nan'),
 
@@ -187,7 +155,6 @@ def create_event_targets_period(
             has_special_event = True
 
     return {
-
         f'Target_Has_Event_{horizon_name}':
             int(has_event),
 
@@ -210,75 +177,42 @@ def create_event_targets(
     """
     Public Event Target Engineering entry point.
 
-    Supported daily horizons:
-
-        1D
-        2D
-        3D
-        4D
-        5D
-        6D
-        7D
-
-    Supported period horizons:
-
-        8_15D
-        16_30D
-        30D
-
     Daily horizons represent one exact future day.
 
     Period horizons summarize a complete future period.
     """
 
-    # -----------------------------------------------------
+    if future_rows is None:
+
+        future_rows = []
+
+    # =====================================================
     # DAILY HORIZONS
-    # -----------------------------------------------------
+    # =====================================================
 
-    daily_horizons = {
-        '1D',
-        '2D',
-        '3D',
-        '4D',
-        '5D',
-        '6D',
-        '7D',
-    }
-
-    if horizon_name in daily_horizons:
-
-        if not future_rows:
-
-            return create_event_targets_daily(
-                None,
-                horizon_name,
-            )
+    if horizon_name in DAILY_HORIZONS:
 
         return create_event_targets_daily(
-            future_rows[0],
+            future_rows[0]
+            if future_rows
+            else None,
             horizon_name,
         )
 
-    # -----------------------------------------------------
+    # =====================================================
     # PERIOD HORIZONS
-    # -----------------------------------------------------
+    # =====================================================
 
-    period_horizons = {
-        '8_15D',
-        '16_30D',
-        '30D',
-    }
-
-    if horizon_name in period_horizons:
+    if horizon_name in PERIOD_HORIZONS:
 
         return create_event_targets_period(
             future_rows,
             horizon_name,
         )
 
-    # -----------------------------------------------------
+    # =====================================================
     # INVALID HORIZON
-    # -----------------------------------------------------
+    # =====================================================
 
     raise ValueError(
         f'Unsupported event horizon: '

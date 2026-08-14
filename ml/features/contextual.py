@@ -1,3 +1,4 @@
+
 def normalize_text(value):
     """
     Safely normalize a value into lowercase text.
@@ -188,5 +189,142 @@ def create_historical_contextual_features(
                 bool(
                     location
                 )
+            ),
+    }
+
+
+# ==========================================================
+# KNOWN FUTURE CONTEXT
+# ==========================================================
+
+def create_known_future_features(
+    target_row,
+):
+    """
+    Create features from information known in advance
+    about the target day.
+
+    These values are fundamentally different from
+    historical observations.
+
+    Plans and recurring rules can be known before the
+    target day occurs. Therefore, they are legitimate
+    predictors for future forecasting.
+
+    IMPORTANT:
+
+        This function MUST NOT use actual outcomes such as:
+
+            Expense_Total
+            Income_Total
+            Activity_Cost
+            Health_Record_Count
+            etc.
+
+        It only uses information that can reasonably be
+        known before the target day.
+    """
+
+    if not target_row:
+        target_row = {}
+
+    return {
+
+        # --------------------------------------------------
+        # Plans
+        # --------------------------------------------------
+
+        'Known_Plan_Count':
+            int(
+                target_row.get(
+                    'Plan_Count',
+                    0,
+                )
+                or 0
+            ),
+
+        'Known_Plan_Expected_Cost':
+            float(
+                target_row.get(
+                    'Plan_Expected_Cost',
+                    0.0,
+                )
+                or 0.0
+            ),
+
+        'Known_Plan_Duration_Days':
+            float(
+                target_row.get(
+                    'Plan_Duration_Days',
+                    0.0,
+                )
+                or 0.0
+            ),
+
+        'Known_High_Importance_Plan_Count':
+            int(
+                target_row.get(
+                    'High_Importance_Plan_Count',
+                    0,
+                )
+                or 0
+            ),
+
+        # --------------------------------------------------
+        # Recurring
+        # --------------------------------------------------
+
+        'Known_Recurring_Count':
+            int(
+                target_row.get(
+                    'Recurring_Count',
+                    0,
+                )
+                or 0
+            ),
+
+        'Known_Recurring_Amount':
+            float(
+                target_row.get(
+                    'Recurring_Amount',
+                    0.0,
+                )
+                or 0.0
+            ),
+
+        'Known_Recurring_Expense_Amount':
+            float(
+                target_row.get(
+                    'Recurring_Expense_Amount',
+                    0.0,
+                )
+                or 0.0
+            ),
+
+        'Known_Recurring_Income_Amount':
+            float(
+                target_row.get(
+                    'Recurring_Income_Amount',
+                    0.0,
+                )
+                or 0.0
+            ),
+
+        'Known_Fixed_Recurring_Amount':
+            float(
+                target_row.get(
+                    'Fixed_Recurring_Amount',
+                    0.0,
+                )
+                or 0.0
+            ),
+
+        'Known_Active_Recurring_Count':
+            int(
+                target_row.get(
+                    'Active_Recurring_Count',
+                    0,
+                )
+                or 0
             ),
     }

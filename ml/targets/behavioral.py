@@ -1,6 +1,9 @@
-# =========================================================
-# BEHAVIORAL TARGETS
-# =========================================================
+
+from ml.targets.common import (
+    DAILY_HORIZONS,
+    PERIOD_HORIZONS,
+    to_float,
+)
 
 
 # =========================================================
@@ -12,17 +15,9 @@ def _get_stress_level(row):
     Safely extract stress level.
     """
 
-    try:
-        return float(
-            row.get('Stress_Level')
-            or 0.0
-        )
-
-    except (
-        TypeError,
-        ValueError,
-    ):
-        return 0.0
+    return to_float(
+        row.get('Stress_Level')
+    )
 
 
 def _get_sleep_hours(row):
@@ -30,22 +25,14 @@ def _get_sleep_hours(row):
     Safely extract sleep duration.
     """
 
-    try:
-        return float(
-            row.get('Sleep_Hours')
-            or 0.0
-        )
-
-    except (
-        TypeError,
-        ValueError,
-    ):
-        return 0.0
+    return to_float(
+        row.get('Sleep_Hours')
+    )
 
 
 def _get_social_activity(row):
     """
-    Safely extract social activity level.
+    Safely extract and normalize social activity level.
     """
 
     return str(
@@ -56,7 +43,7 @@ def _get_social_activity(row):
 
 def _get_work_status(row):
     """
-    Safely extract work status.
+    Safely extract and normalize work status.
     """
 
     return str(
@@ -94,9 +81,7 @@ def _is_low_sleep(row):
     Low sleep means more than zero but less than 6 hours.
     """
 
-    sleep_hours = _get_sleep_hours(
-        row
-    )
+    sleep_hours = _get_sleep_hours(row)
 
     return (
         sleep_hours > 0
@@ -109,9 +94,7 @@ def _is_very_low_sleep(row):
     Very low sleep means more than zero but less than 5 hours.
     """
 
-    sleep_hours = _get_sleep_hours(
-        row
-    )
+    sleep_hours = _get_sleep_hours(row)
 
     return (
         sleep_hours > 0
@@ -125,8 +108,7 @@ def _is_high_social_activity(row):
     """
 
     return (
-        _get_social_activity(row)
-        == 'high'
+        _get_social_activity(row) == 'high'
     )
 
 
@@ -161,8 +143,8 @@ def _is_working_day(row):
 
 def _is_difficult_behavioral_day(row):
     """
-    Determine whether the day represents a
-    difficult behavioral day.
+    Determine whether the day represents a difficult
+    behavioral day.
 
     A difficult behavioral day is defined by:
 
@@ -178,6 +160,42 @@ def _is_difficult_behavioral_day(row):
 
 
 # =========================================================
+# EMPTY TARGETS
+# =========================================================
+
+def _empty_targets(horizon_name):
+    """
+    Return empty behavioral targets for a future horizon.
+    """
+
+    return {
+        f'Target_High_Stress_{horizon_name}':
+            float('nan'),
+
+        f'Target_Moderate_or_High_Stress_{horizon_name}':
+            float('nan'),
+
+        f'Target_Low_Sleep_{horizon_name}':
+            float('nan'),
+
+        f'Target_Very_Low_Sleep_{horizon_name}':
+            float('nan'),
+
+        f'Target_High_Social_Activity_{horizon_name}':
+            float('nan'),
+
+        f'Target_Moderate_or_High_Social_Activity_{horizon_name}':
+            float('nan'),
+
+        f'Target_Working_Day_{horizon_name}':
+            float('nan'),
+
+        f'Target_Difficult_Behavioral_Day_{horizon_name}':
+            float('nan'),
+    }
+
+
+# =========================================================
 # DAILY BEHAVIORAL TARGETS
 # =========================================================
 
@@ -186,121 +204,71 @@ def create_behavioral_targets_daily(
     horizon_name,
 ):
     """
-    Create behavioral targets for one specific
-    future day.
+    Create behavioral targets for one specific future day.
 
-    horizon_name identifies the exact future day.
-
-    Examples:
-
-        1D -> T + 1
-        2D -> T + 2
-        3D -> T + 3
-        ...
-        7D -> T + 7
-
-    The important difference from the old design is
-    that each future day has its own independent target.
+    Each future day receives independent targets.
     """
 
     if not future_row:
-
-        return {
-            f'Target_High_Stress_{horizon_name}':
-                float('nan'),
-
-            f'Target_Moderate_or_High_Stress_{horizon_name}':
-                float('nan'),
-
-            f'Target_Low_Sleep_{horizon_name}':
-                float('nan'),
-
-            f'Target_Very_Low_Sleep_{horizon_name}':
-                float('nan'),
-
-            f'Target_High_Social_Activity_{horizon_name}':
-                float('nan'),
-
-            f'Target_Moderate_or_High_Social_Activity_{horizon_name}':
-                float('nan'),
-
-            f'Target_Working_Day_{horizon_name}':
-                float('nan'),
-
-            f'Target_Difficult_Behavioral_Day_{horizon_name}':
-                float('nan'),
-        }
-
-    high_stress = _is_high_stress(
-        future_row
-    )
-
-    moderate_or_high_stress = (
-        _is_moderate_or_high_stress(
-            future_row
+        return _empty_targets(
+            horizon_name
         )
-    )
-
-    low_sleep = _is_low_sleep(
-        future_row
-    )
-
-    very_low_sleep = _is_very_low_sleep(
-        future_row
-    )
-
-    high_social_activity = (
-        _is_high_social_activity(
-            future_row
-        )
-    )
-
-    moderate_or_high_social_activity = (
-        _is_moderate_or_high_social_activity(
-            future_row
-        )
-    )
-
-    working_day = _is_working_day(
-        future_row
-    )
-
-    difficult_behavioral_day = (
-        _is_difficult_behavioral_day(
-            future_row
-        )
-    )
 
     return {
-
         f'Target_High_Stress_{horizon_name}':
-            int(high_stress),
+            int(
+                _is_high_stress(
+                    future_row
+                )
+            ),
 
         f'Target_Moderate_or_High_Stress_{horizon_name}':
             int(
-                moderate_or_high_stress
+                _is_moderate_or_high_stress(
+                    future_row
+                )
             ),
 
         f'Target_Low_Sleep_{horizon_name}':
-            int(low_sleep),
+            int(
+                _is_low_sleep(
+                    future_row
+                )
+            ),
 
         f'Target_Very_Low_Sleep_{horizon_name}':
-            int(very_low_sleep),
+            int(
+                _is_very_low_sleep(
+                    future_row
+                )
+            ),
 
         f'Target_High_Social_Activity_{horizon_name}':
-            int(high_social_activity),
+            int(
+                _is_high_social_activity(
+                    future_row
+                )
+            ),
 
         f'Target_Moderate_or_High_Social_Activity_{horizon_name}':
             int(
-                moderate_or_high_social_activity
+                _is_moderate_or_high_social_activity(
+                    future_row
+                )
             ),
 
         f'Target_Working_Day_{horizon_name}':
-            int(working_day),
+            int(
+                _is_working_day(
+                    future_row
+                )
+            ),
 
         f'Target_Difficult_Behavioral_Day_{horizon_name}':
             int(
-                difficult_behavioral_day
+                _is_difficult_behavioral_day(
+                    future_row
+                )
             ),
     }
 
@@ -316,124 +284,78 @@ def create_behavioral_targets_period(
     """
     Create behavioral targets for a future period.
 
-    Unlike the daily targets, period targets do not
-    describe each individual day.
-
-    They answer questions such as:
-
-        Did high stress occur at least once
-        during the period?
-
-        Did low sleep occur at least once?
-
-        Was there at least one working day?
-
-        Was there at least one difficult behavioral day?
-
-    This provides a useful higher-level summary while
-    preserving the detailed daily predictions separately.
+    A period target becomes 1 when the corresponding
+    condition occurs on at least one future day.
     """
 
     if not future_rows:
-
-        return {
-            f'Target_High_Stress_{horizon_name}':
-                float('nan'),
-
-            f'Target_Moderate_or_High_Stress_{horizon_name}':
-                float('nan'),
-
-            f'Target_Low_Sleep_{horizon_name}':
-                float('nan'),
-
-            f'Target_Very_Low_Sleep_{horizon_name}':
-                float('nan'),
-
-            f'Target_High_Social_Activity_{horizon_name}':
-                float('nan'),
-
-            f'Target_Moderate_or_High_Social_Activity_{horizon_name}':
-                float('nan'),
-
-            f'Target_Working_Day_{horizon_name}':
-                float('nan'),
-
-            f'Target_Difficult_Behavioral_Day_{horizon_name}':
-                float('nan'),
-        }
-
-    high_stress = False
-
-    moderate_or_high_stress = False
-
-    low_sleep = False
-
-    very_low_sleep = False
-
-    high_social_activity = False
-
-    moderate_or_high_social_activity = False
-
-    working_day = False
-
-    difficult_behavioral_day = False
-
-    for row in future_rows:
-
-        if _is_high_stress(row):
-            high_stress = True
-
-        if _is_moderate_or_high_stress(row):
-            moderate_or_high_stress = True
-
-        if _is_low_sleep(row):
-            low_sleep = True
-
-        if _is_very_low_sleep(row):
-            very_low_sleep = True
-
-        if _is_high_social_activity(row):
-            high_social_activity = True
-
-        if _is_moderate_or_high_social_activity(row):
-            moderate_or_high_social_activity = True
-
-        if _is_working_day(row):
-            working_day = True
-
-        if _is_difficult_behavioral_day(row):
-            difficult_behavioral_day = True
+        return _empty_targets(
+            horizon_name
+        )
 
     return {
-
         f'Target_High_Stress_{horizon_name}':
-            int(high_stress),
+            int(
+                any(
+                    _is_high_stress(row)
+                    for row in future_rows
+                )
+            ),
 
         f'Target_Moderate_or_High_Stress_{horizon_name}':
             int(
-                moderate_or_high_stress
+                any(
+                    _is_moderate_or_high_stress(row)
+                    for row in future_rows
+                )
             ),
 
         f'Target_Low_Sleep_{horizon_name}':
-            int(low_sleep),
+            int(
+                any(
+                    _is_low_sleep(row)
+                    for row in future_rows
+                )
+            ),
 
         f'Target_Very_Low_Sleep_{horizon_name}':
-            int(very_low_sleep),
+            int(
+                any(
+                    _is_very_low_sleep(row)
+                    for row in future_rows
+                )
+            ),
 
         f'Target_High_Social_Activity_{horizon_name}':
-            int(high_social_activity),
+            int(
+                any(
+                    _is_high_social_activity(row)
+                    for row in future_rows
+                )
+            ),
 
         f'Target_Moderate_or_High_Social_Activity_{horizon_name}':
             int(
-                moderate_or_high_social_activity
+                any(
+                    _is_moderate_or_high_social_activity(row)
+                    for row in future_rows
+                )
             ),
 
         f'Target_Working_Day_{horizon_name}':
-            int(working_day),
+            int(
+                any(
+                    _is_working_day(row)
+                    for row in future_rows
+                )
+            ),
 
         f'Target_Difficult_Behavioral_Day_{horizon_name}':
             int(
-                difficult_behavioral_day
+                any(
+                    _is_difficult_behavioral_day(row)
+                    for row in future_rows
+                )
             ),
     }
 
@@ -449,75 +371,45 @@ def create_behavioral_targets(
     """
     Public Behavioral Target Engineering entry point.
 
-    Supported daily horizons:
-
-        1D
-        2D
-        3D
-        4D
-        5D
-        6D
-        7D
-
-    Supported period horizons:
-
-        8_15D
-        16_30D
-        30D
-
     Daily horizons represent one exact future day.
 
-    Period horizons represent a complete future period.
+    Period horizons summarize a complete future period.
     """
 
-    # -----------------------------------------------------
+    if future_rows is None:
+        future_rows = []
+
+    # =====================================================
     # DAILY HORIZONS
-    # -----------------------------------------------------
+    # =====================================================
 
-    daily_horizons = {
-        '1D',
-        '2D',
-        '3D',
-        '4D',
-        '5D',
-        '6D',
-        '7D',
-    }
+    if horizon_name in DAILY_HORIZONS:
 
-    if horizon_name in daily_horizons:
-
-        if not future_rows:
-
-            return create_behavioral_targets_daily(
-                None,
-                horizon_name,
-            )
+        future_row = (
+            future_rows[0]
+            if future_rows
+            else None
+        )
 
         return create_behavioral_targets_daily(
-            future_rows[0],
+            future_row,
             horizon_name,
         )
 
-    # -----------------------------------------------------
+    # =====================================================
     # PERIOD HORIZONS
-    # -----------------------------------------------------
+    # =====================================================
 
-    period_horizons = {
-        '8_15D',
-        '16_30D',
-        '30D',
-    }
-
-    if horizon_name in period_horizons:
+    if horizon_name in PERIOD_HORIZONS:
 
         return create_behavioral_targets_period(
             future_rows,
             horizon_name,
         )
 
-    # -----------------------------------------------------
+    # =====================================================
     # INVALID HORIZON
-    # -----------------------------------------------------
+    # =====================================================
 
     raise ValueError(
         f'Unsupported behavioral horizon: '
