@@ -1,18 +1,22 @@
+
+import pytest
+
 from ml.features.build import build_training_dataset
 
 
 def test_temporal_split():
     data = build_training_dataset()
 
+    print()
     print(
         '========== TEMPORAL TRAIN/TEST SPLIT TEST =========='
     )
 
     if len(data) < 3:
-        print(
+
+        pytest.skip(
             f'Not enough rows for temporal split: {len(data)}'
         )
-        return False
 
     # ------------------------------------------------------
     # Sort chronologically
@@ -104,6 +108,18 @@ def test_temporal_split():
                 )
             )
 
+    assert not chronological_errors, (
+        'Chronological ordering failed:\n'
+        + '\n'.join(
+            f' - {error}'
+            for error in chronological_errors
+        )
+    )
+
+    print(
+        'Chronological ordering: PASSED'
+    )
+
     # ------------------------------------------------------
     # Test 2: no date overlap
     # ------------------------------------------------------
@@ -123,6 +139,15 @@ def test_temporal_split():
         & test_dates
     )
 
+    assert not date_overlap, (
+        'Date separation failed. '
+        f'Overlapping dates: {sorted(date_overlap)}'
+    )
+
+    print(
+        'Date separation: PASSED'
+    )
+
     # ------------------------------------------------------
     # Test 3: test must be strictly after training
     # ------------------------------------------------------
@@ -137,83 +162,24 @@ def test_temporal_split():
                 row['Date']
             )
 
-    # ------------------------------------------------------
-    # Report
-    # ------------------------------------------------------
-
-    print()
-
-    print(
-        f'Date overlap: '
-        f'{len(date_overlap)}'
+    assert not temporal_violations, (
+        'Future leakage detected. '
+        f'Violating dates: {temporal_violations}'
     )
-
-    print(
-        f'Temporal violations: '
-        f'{len(temporal_violations)}'
-    )
-
-    print()
-
-    if chronological_errors:
-
-        print(
-            'Chronological ordering: FAILED'
-        )
-
-        for error in chronological_errors:
-
-            print(
-                f' - {error}'
-            )
-
-        return False
-
-    print(
-        'Chronological ordering: PASSED'
-    )
-
-    if date_overlap:
-
-        print(
-            'Date separation: FAILED'
-        )
-
-        print(
-            f'Overlapping dates: '
-            f'{sorted(date_overlap)}'
-        )
-
-        return False
-
-    print(
-        'Date separation: PASSED'
-    )
-
-    if temporal_violations:
-
-        print(
-            'Future leakage: FAILED'
-        )
-
-        print(
-            f'Violating dates: '
-            f'{temporal_violations}'
-        )
-
-        return False
 
     print(
         'Future leakage: PASSED'
     )
+
+    # ------------------------------------------------------
+    # Final result
+    # ------------------------------------------------------
 
     print()
 
     print(
         '========== TEMPORAL SPLIT TEST PASSED =========='
     )
-
-    return True
 
 
 if __name__ == '__main__':

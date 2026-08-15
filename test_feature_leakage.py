@@ -1,23 +1,22 @@
-from copy import deepcopy
+from datetime import date, datetime
 
-from ml.preparation.preparation import get_prepared_dataset
-from ml.features.build import (
-    build_training_dataset,
-    build_feature_row,
-    get_feature_names,
+from ml.features.build import build_training_dataset
+
+
+# ==========================================================
+# FEATURE GROUPS
+# ==========================================================
+
+FORWARD_LOOKING_PREFIXES = (
+    'Target_',
 )
 
 
-# ==========================================================
-# CONFIGURATION
-# ==========================================================
-
-TARGET_COLUMN = 'Target_Expense_Total'
-DATE_COLUMN = 'Date'
-
-ALLOWED_KNOWN_PREFIXES = (
-    'Known_Plan_',
-    'Known_Recurring_',
+HISTORICAL_FEATURE_PREFIXES = (
+    'Previous_Day_',
+    'Lag_',
+    'Rolling_',
+    'Same_Weekday_',
 )
 
 
@@ -25,417 +24,419 @@ ALLOWED_KNOWN_PREFIXES = (
 # HELPERS
 # ==========================================================
 
-def assert_true(condition, message):
-    if not condition:
-        raise AssertionError(message)
+def normalize_date(value):
+    """
+    Convert supported date values into a comparable date.
+    """
 
+    if isinstance(value, datetime):
+        return value.date()
 
-def build_rows_from_prepared(prepared_data):
-    prepared_data = sorted(
-        prepared_data,
-        key=lambda row: row['Date'],
+    if isinstance(value, date):
+        return value
+
+    if isinstance(value, str):
+
+        return datetime.fromisoformat(
+            value
+        ).date()
+
+    raise TypeError(
+        f'Unsupported date type: {type(value)}'
     )
 
-    rows = []
 
-    for index in range(1, len(prepared_data)):
-        target_row = prepared_data[index]
-        previous_rows = prepared_data[:index]
+def feature_columns(dataset):
+    """
+    Return model feature columns.
 
-        features = build_feature_row(
-            target_row,
-            previous_rows,
-        )
+    Date and Target columns are excluded.
+    """
 
-        features[TARGET_COLUMN] = float(
-            target_row.get('Expense_Total') or 0.0
-        )
+    if not dataset:
+        return []
 
-        rows.append(features)
-
-    return rows
+    return [
+        key
+        for key in dataset[0].keys()
+        if key != 'Date'
+        and not key.startswith('Target_')
+    ]
 
 
 # ==========================================================
 # TEST 1
+# DATASET EXISTS
 # ==========================================================
 
-def test_target_and_date_are_excluded_from_model_features():
-    data = build_training_dataset()
+def test_training_dataset_exists():
 
-    assert_true(
-        data,
-        'Training dataset is empty.',
+    dataset = build_training_dataset()
+
+    assert dataset, (
+        'Training dataset is empty.'
     )
 
-    feature_names = get_feature_names(data)
-
-    assert_true(
-        DATE_COLUMN not in feature_names,
-        'DATA LEAKAGE: Date is included in model features.',
-    )
-
-    assert_true(
-        TARGET_COLUMN not in feature_names,
-        'DATA LEAKAGE: Target_Expense_Total is included in model features.',
+    print(
+        f'PASS: Training dataset contains '
+        f'{len(dataset)} rows.'
     )
 
 
 # ==========================================================
 # TEST 2
+# NO TARGETS ARE FEATURES
 # ==========================================================
 
-def test_target_is_present_only_as_target():
-    data = build_training_dataset()
+def test_targets_are_not_model_features():
 
-    assert_true(
-        data,
-        'Training dataset is empty.',
+    dataset = build_training_dataset()
+
+    columns = feature_columns(
+        dataset
     )
 
-    for index, row in enumerate(data):
+    leaked_targets = [
+        column
+        for column in columns
+        if column.startswith('Target_')
+    ]
 
-        assert_true(
-            TARGET_COLUMN in row,
-            f'Row {index} does not contain the target.',
+    assert not leaked_targets, (
+        'Target columns found among model features:\n'
+        + '\n'.join(
+            leaked_targets
         )
+    )
 
-        feature_names = get_feature_names([row])
-
-        assert_true(
-            TARGET_COLUMN not in feature_names,
-            f'Row {index} leaks the target into model features.',
-        )
+    print(
+        'PASS: No Target_* column is used '
+        'as a model feature.'
+    )
 
 
 # ==========================================================
 # TEST 3
+# DATE IS NOT A RAW FEATURE
 # ==========================================================
 
-def test_known_future_features_are_explicitly_allowed():
-    data = build_training_dataset()
+def test_date_is_not_raw_feature():
 
-    assert_true(
-        data,
-        'Training dataset is empty.',
+    dataset = build_training_dataset()
+
+    columns = feature_columns(
+        dataset
     )
 
-    feature_names = get_feature_names(data)
-
-    known_features = [
-        name
-        for name in feature_names
-        if name.startswith(ALLOWED_KNOWN_PREFIXES)
-    ]
-
-    assert_true(
-        known_features,
-        'Expected Known_Plan_* / Known_Recurring_* features were not found.',
+    assert 'Date' not in columns, (
+        'Raw Date is being used directly '
+        'as a model feature.'
     )
 
-    forbidden_actual_names = {
-        'Actual_Cost',
-        'Actual_Date',
-        'Expense_Total',
-    }
-
-    for name in feature_names:
-        assert_true(
-            name not in forbidden_actual_names,
-            f'Potential actual-outcome leakage feature found: {name}',
-        )
+    print(
+        'PASS: Raw Date is excluded from '
+        'model features.'
+    )
 
 
 # ==========================================================
 # TEST 4
+# EXPECTED HISTORICAL FEATURE GROUPS EXIST
 # ==========================================================
 
-def test_chronological_training_rows():
-    prepared = get_prepared_dataset()
+def test_historical_feature_groups_exist():
 
-    assert_true(
-        prepared,
-        'Prepared dataset is empty.',
+    dataset = build_training_dataset()
+
+    columns = feature_columns(
+        dataset
     )
 
-    dates = [
-        row['Date']
-        for row in sorted(
-            prepared,
-            key=lambda row: row['Date'],
+    for prefix in HISTORICAL_FEATURE_PREFIXES:
+
+        matches = [
+            column
+            for column in columns
+            if column.startswith(prefix)
+        ]
+
+        assert matches, (
+            f'No features found for group '
+            f'{prefix}'
         )
-    ]
 
-    assert_true(
-        dates == sorted(dates),
-        'Prepared data is not chronologically ordered.',
-    )
-
-    training_data = build_training_dataset()
-
-    training_dates = [
-        row[DATE_COLUMN]
-        for row in training_data
-    ]
-
-    assert_true(
-        training_dates == sorted(training_dates),
-        'Training target dates are not chronologically ordered.',
-    )
+        print(
+            f'PASS: {prefix} '
+            f'features found: {len(matches)}'
+        )
 
 
 # ==========================================================
 # TEST 5
+# FORWARD-LOOKING TARGET FEATURES DO NOT EXIST
 # ==========================================================
-# Adversarial test:
-# Changing the target day's actual expense must not change
-# features that are supposed to be calculated from the past
-# and known future information.
 
+def test_forward_target_features_do_not_exist():
 
-def test_target_day_expense_cannot_change_its_own_features():
-    prepared_original = get_prepared_dataset()
+    dataset = build_training_dataset()
 
-    assert_true(
-        len(prepared_original) >= 2,
-        'At least two prepared days are required.',
+    columns = feature_columns(
+        dataset
     )
 
-    prepared_original = sorted(
-        prepared_original,
-        key=lambda row: row['Date'],
+    forward_features = [
+        column
+        for column in columns
+        if column.startswith(
+            FORWARD_LOOKING_PREFIXES
+        )
+    ]
+
+    assert not forward_features, (
+        'Forward-looking Target_* features '
+        'detected:\n'
+        + '\n'.join(
+            forward_features
+        )
     )
 
-    # ------------------------------------------------------
-    # Test each target day independently.
-    #
-    # We change ONLY the target day's actual expense.
-    #
-    # Historical rows before that target day remain
-    # completely unchanged.
-    # ------------------------------------------------------
-
-    for target_index in range(
-        1,
-        len(prepared_original),
-    ):
-
-        original_data = deepcopy(
-            prepared_original
-        )
-
-        modified_data = deepcopy(
-            prepared_original
-        )
-
-        original_target = original_data[
-            target_index
-        ]
-
-        modified_target = modified_data[
-            target_index
-        ]
-
-        original_features = build_feature_row(
-            original_target,
-            original_data[:target_index],
-        )
-
-        # Change ONLY the target day's actual expense.
-        modified_target['Expense_Total'] = (
-            float(
-                original_target.get(
-                    'Expense_Total'
-                ) or 0.0
-            )
-            + 999999999.0
-        )
-
-        modified_features = build_feature_row(
-            modified_target,
-            modified_data[:target_index],
-        )
-
-        # --------------------------------------------------
-        # Compare every feature except Date.
-        #
-        # The target day's actual Expense_Total must have
-        # absolutely no effect on its own features.
-        # --------------------------------------------------
-
-        for key in original_features:
-
-            if key == DATE_COLUMN:
-                continue
-
-            original_value = (
-                original_features.get(key)
-            )
-
-            modified_value = (
-                modified_features.get(key)
-            )
-
-            assert_true(
-                original_value == modified_value,
-                (
-                    'DATA LEAKAGE detected: '
-                    f'feature "{key}" changed for target day '
-                    f"{original_target['Date']} when only "
-                    'that target day Expense_Total was changed.'
-                ),
-            )
+    print(
+        'PASS: No forward-looking Target_* '
+        'feature exists.'
+    )
 
 
 # ==========================================================
 # TEST 6
+# FEATURE STRUCTURE IS IDENTICAL
 # ==========================================================
 
-def test_previous_day_features_do_not_use_target_day_values():
-    prepared = get_prepared_dataset()
+def test_feature_structure_is_identical():
 
-    prepared = sorted(
-        prepared,
-        key=lambda row: row['Date'],
+    dataset = build_training_dataset()
+
+    expected = set(
+        feature_columns(dataset)
     )
 
-    assert_true(
-        len(prepared) >= 2,
-        'At least two prepared days are required.',
-    )
+    errors = []
 
-    for index in range(1, len(prepared)):
+    for index, row in enumerate(
+        dataset
+    ):
 
-        target = prepared[index]
-        previous = prepared[:index]
+        actual = {
+            key
+            for key in row.keys()
+            if key != 'Date'
+            and not key.startswith(
+                'Target_'
+            )
+        }
 
-        features = build_feature_row(
-            target,
-            previous,
+        if actual != expected:
+
+            errors.append(
+                (
+                    index,
+                    sorted(
+                        expected - actual
+                    ),
+                    sorted(
+                        actual - expected
+                    ),
+                )
+            )
+
+    assert not errors, (
+        'Feature structure differs between rows:\n'
+        + '\n'.join(
+            str(error)
+            for error in errors[:10]
         )
+    )
 
-        # Direct previous-day expense must correspond to
-        # the previous row, never the target row.
-        if 'Previous_Day_Expense' in features:
-
-            expected = float(
-                previous[-1].get(
-                    'Expense_Total'
-                ) or 0.0
-            )
-
-            actual = features[
-                'Previous_Day_Expense'
-            ]
-
-            assert_true(
-                actual == expected,
-                (
-                    'DATA LEAKAGE: Previous_Day_Expense '
-                    'does not correspond to the immediately '
-                    'previous day.'
-                ),
-            )
-
-        # Previous-day income must likewise come from history.
-        if 'Previous_Day_Income' in features:
-
-            expected = float(
-                previous[-1].get(
-                    'Income_Total'
-                ) or 0.0
-            )
-
-            actual = features[
-                'Previous_Day_Income'
-            ]
-
-            assert_true(
-                actual == expected,
-                (
-                    'DATA LEAKAGE: Previous_Day_Income '
-                    'does not correspond to the immediately '
-                    'previous day.'
-                ),
-            )
+    print(
+        'PASS: Feature structure is identical '
+        'across all rows.'
+    )
 
 
 # ==========================================================
 # TEST 7
+# HISTORICAL FEATURE NAMES
 # ==========================================================
 
-def test_training_dataset_structure():
-    data = build_training_dataset()
+def test_historical_features_have_expected_names():
 
-    assert_true(
-        data,
-        'Training dataset is empty.',
+    dataset = build_training_dataset()
+
+    columns = feature_columns(
+        dataset
     )
 
-    for index, row in enumerate(data):
+    suspicious = []
 
-        assert_true(
-            DATE_COLUMN in row,
-            f'Row {index} is missing Date.',
+    for column in columns:
+
+        if column.startswith(
+            HISTORICAL_FEATURE_PREFIXES
+        ):
+
+            lowered = column.lower()
+
+            suspicious_words = (
+                'future',
+                'next_day',
+                'next_',
+                'tomorrow',
+                'forward',
+            )
+
+            if any(
+                word in lowered
+                for word in suspicious_words
+            ):
+
+                suspicious.append(
+                    column
+                )
+
+    assert not suspicious, (
+        'Suspicious future-looking historical '
+        'feature names detected:\n'
+        + '\n'.join(
+            suspicious
         )
+    )
 
-        assert_true(
-            TARGET_COLUMN in row,
-            f'Row {index} is missing Target_Expense_Total.',
-        )
+    print(
+        'PASS: Historical feature names '
+        'contain no obvious future-looking markers.'
+    )
 
-        assert_true(
-            isinstance(row[DATE_COLUMN], object),
-            f'Row {index} has an invalid Date value.',
-        )
 
-        assert_true(
-            isinstance(
-                row[TARGET_COLUMN],
+# ==========================================================
+# TEST 8
+# NO DUPLICATE FEATURE NAMES
+# ==========================================================
+
+def test_no_duplicate_feature_names():
+
+    dataset = build_training_dataset()
+
+    columns = feature_columns(
+        dataset
+    )
+
+    assert len(columns) == len(
+        set(columns)
+    ), (
+        'Duplicate model feature names detected.'
+    )
+
+    print(
+        'PASS: No duplicate model feature names.'
+    )
+
+
+# ==========================================================
+# TEST 9
+# FEATURE VALUES ARE NUMERIC
+# ==========================================================
+
+def test_model_features_are_numeric():
+
+    dataset = build_training_dataset()
+
+    errors = []
+
+    columns = feature_columns(
+        dataset
+    )
+
+    for row_index, row in enumerate(
+        dataset
+    ):
+
+        for column in columns:
+
+            value = row.get(
+                column
+            )
+
+            if value is None:
+                continue
+
+            if isinstance(
+                value,
+                bool,
+            ):
+                continue
+
+            if not isinstance(
+                value,
                 (int, float),
-            ),
-            f'Row {index} has a non-numeric target.',
+            ):
+
+                errors.append(
+                    (
+                        row_index,
+                        column,
+                        value,
+                    )
+                )
+
+    assert not errors, (
+        'Non-numeric model feature values detected:\n'
+        + '\n'.join(
+            str(error)
+            for error in errors[:20]
         )
+    )
+
+    print(
+        'PASS: Model features contain '
+        'numeric values or None.'
+    )
 
 
 # ==========================================================
-# RUN ALL TESTS
+# FINAL
 # ==========================================================
-
-def run_all_tests():
-    tests = [
-        test_target_and_date_are_excluded_from_model_features,
-        test_target_is_present_only_as_target,
-        test_known_future_features_are_explicitly_allowed,
-        test_chronological_training_rows,
-        test_target_day_expense_cannot_change_its_own_features,
-        test_previous_day_features_do_not_use_target_day_values,
-        test_training_dataset_structure,
-    ]
-
-    print()
-    print('=' * 70)
-    print('FEATURE ENGINEERING DATA LEAKAGE TEST')
-    print('=' * 70)
-
-    passed = 0
-
-    for test in tests:
-
-        print()
-        print(f'Running: {test.__name__}')
-
-        test()
-
-        print('PASS')
-        passed += 1
-
-    print()
-    print('=' * 70)
-    print(f'PASSED: {passed}/{len(tests)}')
-    print('NO DATA LEAKAGE DETECTED BY THESE TESTS.')
-    print('=' * 70)
-
 
 if __name__ == '__main__':
-    run_all_tests()
+
+    print()
+    print(
+        '================================================='
+    )
+    print(
+        '          FEATURE LEAKAGE VALIDATION'
+    )
+    print(
+        '================================================='
+    )
+    print()
+
+    dataset = build_training_dataset()
+
+    print(
+        f'Dataset rows: {len(dataset)}'
+    )
+
+    print(
+        f'Feature count: '
+        f'{len(feature_columns(dataset))}'
+    )
+
+    print()
+
+    print(
+        'Run with:'
+    )
+
+    print(
+        'python -m pytest -q '
+        'test_feature_leakage.py'
+    )

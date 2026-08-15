@@ -1,3 +1,4 @@
+
 from sklearn.linear_model import LinearRegression
 
 from ml.features.build import (
@@ -8,6 +9,20 @@ from ml.evaluation.metrics import (
     calculate_metrics,
 )
 
+
+# ==========================================================
+# EVALUATION STATUS
+# ==========================================================
+
+EVALUATION_VALID = 'valid'
+EVALUATION_INSUFFICIENT_TRAINING_VARIATION = (
+    'insufficient_training_variation'
+)
+
+
+# ==========================================================
+# MODEL EVALUATION
+# ==========================================================
 
 def evaluate_model(
     training_result=None,
@@ -22,7 +37,17 @@ def evaluate_model(
 
     The data is never shuffled.
 
-    A valid R² evaluation requires at least two test rows.
+    Important:
+
+        A target value of 0.0 is a valid real observation.
+
+        Zero is NEVER treated as missing.
+
+        If the training target contains only one unique value,
+        the model may legitimately learn a constant prediction.
+        In that case, the evaluation is reported as having
+        insufficient target variation rather than treating the
+        resulting R² as a normal model-quality score.
     """
 
     data = build_training_dataset()
@@ -86,7 +111,6 @@ def evaluate_model(
         ]
 
         X_train = []
-
         y_train = []
 
         for row in train_data:
@@ -126,13 +150,34 @@ def evaluate_model(
     ]
 
     # ------------------------------------------------------
+    # Training target analysis
+    # ------------------------------------------------------
+
+    training_target_values = [
+        float(
+            row['Target_Expense_Total']
+        )
+        for row in train_data
+    ]
+
+    unique_training_targets = sorted(
+        set(training_target_values)
+    )
+
+    training_target_unique_count = len(
+        unique_training_targets
+    )
+
+    training_target_has_variation = (
+        training_target_unique_count > 1
+    )
+
+    # ------------------------------------------------------
     # Test on unseen future records
     # ------------------------------------------------------
 
     X_test = []
-
     y_true = []
-
     dates = []
 
     for row in test_data:
@@ -155,9 +200,17 @@ def evaluate_model(
             row['Date']
         )
 
-    y_pred = model.predict(
+    y_pred_raw = model.predict(
         X_test
     )
+
+    y_pred = [
+        max(
+            0.0,
+            float(value),
+        )
+        for value in y_pred_raw
+    ]
 
     # ------------------------------------------------------
     # Metrics
@@ -169,11 +222,48 @@ def evaluate_model(
     )
 
     # ------------------------------------------------------
+    # Evaluation status
+    # ------------------------------------------------------
+
+    if not training_target_has_variation:
+
+        evaluation_status = (
+            EVALUATION_INSUFFICIENT_TRAINING_VARIATION
+        )
+
+        # R² is not a meaningful model-quality indicator
+        # when the training period contains only one unique
+        # target value.
+        metrics['r_squared'] = None
+
+    else:
+
+        evaluation_status = EVALUATION_VALID
+
+    # ------------------------------------------------------
     # Results
     # ------------------------------------------------------
 
     return {
         'metrics': metrics,
+
+        'evaluation_status':
+            evaluation_status,
+
+        'evaluation_valid':
+            evaluation_status == EVALUATION_VALID,
+
+        'training_target_values':
+            training_target_values,
+
+        'training_target_unique_values':
+            unique_training_targets,
+
+        'training_target_unique_count':
+            training_target_unique_count,
+
+        'training_target_has_variation':
+            training_target_has_variation,
 
         'training_rows':
             len(train_data),
@@ -195,11 +285,6 @@ def evaluate_model(
         'actual_values':
             y_true,
 
-        'predicted_values': [
-            max(
-                0.0,
-                float(value),
-            )
-            for value in y_pred
-        ],
+        'predicted_values':
+            y_pred,
     }

@@ -1,6 +1,6 @@
 import json
-from datetime import datetime
 import math
+from datetime import datetime
 
 from database.connection import get_connection
 
@@ -15,20 +15,63 @@ def save_model_history(
     reused_previous_state=False,
 ):
     """
-    Save a trained model and its evaluation metrics
-    into the model_history table.
+    Save a trained model and its evaluation metrics into
+    the model_history table.
+
+    Every training operation creates a new history record.
 
     Previous model history is never deleted.
 
-    Each training operation creates a new record.
+    Evaluation metrics are stored only when they are valid.
 
-    Evaluation metrics are stored only when a valid
-    chronological evaluation is available.
+    A target value of 0.0 is a valid training/evaluation
+    observation and does not require any special handling.
     """
 
-    model = training_result['model']
-    feature_names = training_result['feature_names']
-    training_rows = training_result['training_rows']
+    # ------------------------------------------------------
+    # Validate training result
+    # ------------------------------------------------------
+
+    if training_result is None:
+        raise ValueError(
+            'training_result is required.'
+        )
+
+    model = training_result.get(
+        'model'
+    )
+
+    feature_names = training_result.get(
+        'feature_names'
+    )
+
+    training_rows = training_result.get(
+    'training_rows'
+    )
+
+    target_name = training_result.get(
+        'target_name'
+    )
+
+    if model is None:
+        raise ValueError(
+            'Training result contains no model.'
+        )
+
+    if not feature_names:
+        raise ValueError(
+            'Training result contains no feature names.'
+        )
+
+    if training_rows is None:
+        raise ValueError(
+            'Training result contains no training row count.'
+        )
+
+    if not target_name:
+         raise ValueError(
+            'Training result contains no target name.'
+    )
 
     # ------------------------------------------------------
     # Model parameters
@@ -42,6 +85,36 @@ def save_model_history(
     intercept = float(
         model.intercept_
     )
+
+    # ------------------------------------------------------
+    # Validate feature / coefficient structure
+    # ------------------------------------------------------
+
+    if len(feature_names) != len(
+        coefficients
+    ):
+        raise ValueError(
+            'Feature count does not match coefficient count.'
+        )
+
+    # ------------------------------------------------------
+    # Validate model parameters
+    # ------------------------------------------------------
+
+    if not all(
+        math.isfinite(value)
+        for value in coefficients
+    ):
+        raise ValueError(
+            'Model coefficients contain a non-finite value.'
+        )
+
+    if not math.isfinite(
+        intercept
+    ):
+        raise ValueError(
+            'Model intercept is not finite.'
+        )
 
     # ------------------------------------------------------
     # Feature names
@@ -60,15 +133,21 @@ def save_model_history(
     )
 
     # ------------------------------------------------------
-    # Model preprocessing statistics
+    # Preprocessing statistics
     #
-    # LinearRegression currently does not perform
-    # feature scaling.
+    # LinearRegression currently receives the features
+    # without standardization.
+    #
+    # Therefore there are no means/scales to store.
     # ------------------------------------------------------
 
-    feature_means_json = json.dumps({})
+    feature_means_json = json.dumps(
+        {}
+    )
 
-    feature_scales_json = json.dumps({})
+    feature_scales_json = json.dumps(
+        {}
+    )
 
     # ------------------------------------------------------
     # Evaluation metrics
@@ -98,26 +177,39 @@ def save_model_history(
         )
 
         # --------------------------------------------------
-        # Never store NaN as a valid metric.
+        # Convert valid metrics to float.
+        #
+        # None remains None.
         # --------------------------------------------------
 
-        if (
-            mae is not None
-            and not math.isfinite(float(mae))
-        ):
-            mae = None
+        if mae is not None:
 
-        if (
-            rmse is not None
-            and not math.isfinite(float(rmse))
-        ):
-            rmse = None
+            mae = float(mae)
 
-        if (
-            r_squared is not None
-            and not math.isfinite(float(r_squared))
-        ):
-            r_squared = None
+            if not math.isfinite(
+                mae
+            ):
+                mae = None
+
+        if rmse is not None:
+
+            rmse = float(rmse)
+
+            if not math.isfinite(
+                rmse
+            ):
+                rmse = None
+
+        if r_squared is not None:
+
+            r_squared = float(
+                r_squared
+            )
+
+            if not math.isfinite(
+                r_squared
+            ):
+                r_squared = None
 
     # ------------------------------------------------------
     # Database
@@ -134,6 +226,7 @@ def save_model_history(
             INSERT INTO model_history (
                 trained_at,
                 algorithm,
+                target_name,
                 training_rows,
                 feature_names,
                 coefficients,
@@ -157,13 +250,15 @@ def save_model_history(
                 %s,
                 %s,
                 %s,
+                %s,
                 %s
             )
             """,
             (
                 datetime.now(),
                 'LinearRegression',
-                training_rows,
+                target_name,
+                int(training_rows),
                 feature_names_json,
                 coefficients_json,
                 intercept,

@@ -319,12 +319,4 @@ def create_known_future_features(
                 or 0.0
             ),
 
-        'Known_Active_Recurring_Count':
-            int(
-                target_row.get(
-                    'Active_Recurring_Count',
-                    0,
-                )
-                or 0
-            ),
     }

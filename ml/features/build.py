@@ -364,14 +364,14 @@ def get_feature_names(
 
     excluded = {
         'Date',
-        'Target_Expense_Total',
     }
 
     return [
-        key
-        for key in data[0].keys()
-        if key not in excluded
-    ]
+            key
+            for key in data[0].keys()
+            if key not in excluded
+            and not key.startswith('Target_')
+        ]
 
 
 # ==========================================================

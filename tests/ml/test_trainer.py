@@ -74,10 +74,27 @@ try:
             f"{metrics['rmse']:.4f}"
         )
 
-        print(
-            f"R²: "
-            f"{metrics['r_squared']:.4f}"
-        )
+        r_squared = metrics[
+            'r_squared'
+        ]
+
+        if r_squared is None:
+
+            print(
+                'R²: unavailable'
+            )
+
+            print(
+                'Reason: insufficient target '
+                'variation for R² evaluation.'
+            )
+
+        else:
+
+            print(
+                f"R²: "
+                f"{r_squared:.4f}"
+            )
 
     print()
     print('========== MODEL HISTORY ==========')

@@ -2130,6 +2130,10 @@ def build_daily_dataset():
             row
         )
 
+    dataset.sort(
+        key=lambda row: row['Date']
+    )
+
     return dataset
 
 

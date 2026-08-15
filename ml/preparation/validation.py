@@ -1,3 +1,4 @@
+
 from datetime import date, datetime
 from numbers import Number
 
@@ -326,13 +327,26 @@ def validate_targets(
     """
     Validate target columns.
 
-    Missing target values are allowed.
+    Important:
 
-    This is important because future horizons such as
-    30D cannot exist for the latest historical rows.
+        0.0 is a valid real target value.
 
-    A target is considered trainable when it has at least
-    minimum_available non-missing values.
+    Missing values are represented only by None.
+
+    This function distinguishes between:
+
+        - available target values
+        - missing target values
+        - invalid target values
+        - zero target values
+        - non-zero target values
+        - target variation
+
+    A target with only zero values is NOT considered invalid.
+
+    It simply has no target variation yet, which means that
+    there is currently nothing meaningful for a regression
+    model to learn from this target.
     """
 
     errors = []
@@ -362,10 +376,20 @@ def validate_targets(
         missing_rows = []
         invalid_rows = []
 
+        values = []
+
+        # --------------------------------------------------
+        # Inspect target values
+        # --------------------------------------------------
+
         for index, row in enumerate(data):
 
             value = row.get(target_name)
 
+            # None means missing.
+            #
+            # IMPORTANT:
+            # 0.0 is NOT missing.
             if _is_missing(value):
 
                 missing_rows.append(index)
@@ -378,28 +402,107 @@ def validate_targets(
 
                 continue
 
+            numeric_value = float(value)
+
             available_rows.append(index)
+            values.append(numeric_value)
+
+        # --------------------------------------------------
+        # Basic statistics
+        # --------------------------------------------------
+
+        zero_count = sum(
+            value == 0.0
+            for value in values
+        )
+
+        non_zero_count = sum(
+            value != 0.0
+            for value in values
+        )
+
+        unique_values = sorted(
+            set(values)
+        )
+
+        has_variation = (
+            len(unique_values) > 1
+        )
 
         trainable = (
             len(available_rows)
             >= minimum_available
         )
 
+        # --------------------------------------------------
+        # Regression readiness
+        #
+        # A target can be available but still have no
+        # variation. This is NOT a data error.
+        # --------------------------------------------------
+
+        regression_ready = (
+            len(available_rows) >= 2
+            and has_variation
+        )
+
+        # --------------------------------------------------
+        # Statistics
+        # --------------------------------------------------
+
+        minimum_value = (
+            min(values)
+            if values
+            else None
+        )
+
+        maximum_value = (
+            max(values)
+            if values
+            else None
+        )
+
+        # --------------------------------------------------
+        # Target summary
+        # --------------------------------------------------
+
         target_summary[target_name] = {
 
-            'available': len(
-                available_rows
-            ),
+            'available':
+                len(available_rows),
 
-            'missing': len(
-                missing_rows
-            ),
+            'missing':
+                len(missing_rows),
 
-            'invalid': len(
-                invalid_rows
-            ),
+            'invalid':
+                len(invalid_rows),
 
-            'trainable': trainable,
+            'zero_count':
+                zero_count,
+
+            'non_zero_count':
+                non_zero_count,
+
+            'unique_values':
+                unique_values,
+
+            'unique_value_count':
+                len(unique_values),
+
+            'min':
+                minimum_value,
+
+            'max':
+                maximum_value,
+
+            'has_variation':
+                has_variation,
+
+            'trainable':
+                trainable,
+
+            'regression_ready':
+                regression_ready,
 
             'available_rows':
                 available_rows,
@@ -411,6 +514,12 @@ def validate_targets(
                 invalid_rows,
         }
 
+        # --------------------------------------------------
+        # Invalid values ARE validation errors.
+        #
+        # Lack of variation is NOT an error.
+        # --------------------------------------------------
+
         if invalid_rows:
 
             errors.append(
@@ -419,10 +528,17 @@ def validate_targets(
             )
 
     return {
-        'valid': not errors,
-        'errors': errors,
-        'target_count': len(target_names),
-        'target_summary': target_summary,
+        'valid':
+            not errors,
+
+        'errors':
+            errors,
+
+        'target_count':
+            len(target_names),
+
+        'target_summary':
+            target_summary,
     }
 
 

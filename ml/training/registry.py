@@ -30,6 +30,7 @@ def get_latest_model_history():
                 id,
                 trained_at,
                 algorithm,
+                target_name,
                 training_rows,
                 feature_names,
                 coefficients,

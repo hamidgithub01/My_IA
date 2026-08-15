@@ -1,3 +1,5 @@
+import math
+
 import numpy as np
 
 from sklearn.linear_model import LinearRegression
@@ -16,20 +18,33 @@ def load_model_from_history(
     model_history,
 ):
     """
-    Reconstruct a trained model from a model history record.
+    Reconstruct a trained LinearRegression model from a
+    model_history database record.
+
+    No training is performed.
 
     The model is reconstructed from:
+
         - algorithm
+        - feature_names
         - coefficients
         - intercept
 
-    No training is performed.
+    Target_Expense_Total remains the target definition.
     """
+
+    # ------------------------------------------------------
+    # Validate history record
+    # ------------------------------------------------------
 
     if model_history is None:
         raise ValueError(
             'Model history record is required.'
         )
+
+    # ------------------------------------------------------
+    # Algorithm
+    # ------------------------------------------------------
 
     algorithm = model_history.get(
         'algorithm'
@@ -40,21 +55,41 @@ def load_model_from_history(
             f'Unsupported model algorithm: {algorithm}'
         )
 
+    # ------------------------------------------------------
+    # Feature names
+    # ------------------------------------------------------
+
     feature_names = model_history.get(
         'feature_names'
     ) or []
+
+    if not isinstance(
+        feature_names,
+        list,
+    ):
+        raise ValueError(
+            'Model history feature_names must be a list.'
+        )
+
+    if not feature_names:
+        raise ValueError(
+            'Model history contains no feature names.'
+        )
+
+    # ------------------------------------------------------
+    # Coefficients
+    # ------------------------------------------------------
 
     coefficients = model_history.get(
         'coefficients'
     ) or []
 
-    intercept = model_history.get(
-        'intercept'
-    )
-
-    if not feature_names:
+    if not isinstance(
+        coefficients,
+        list,
+    ):
         raise ValueError(
-            'Model history contains no feature names.'
+            'Model history coefficients must be a list.'
         )
 
     if not coefficients:
@@ -62,54 +97,128 @@ def load_model_from_history(
             'Model history contains no coefficients.'
         )
 
-    if len(feature_names) != len(coefficients):
+    # ------------------------------------------------------
+    # Feature / coefficient consistency
+    # ------------------------------------------------------
+
+    if len(feature_names) != len(
+        coefficients
+    ):
         raise ValueError(
             'Feature count does not match coefficient count.'
         )
+
+    # ------------------------------------------------------
+    # Convert and validate coefficients
+    # ------------------------------------------------------
+
+    try:
+
+        coefficient_values = [
+            float(value)
+            for value in coefficients
+        ]
+
+    except (
+        TypeError,
+        ValueError,
+    ) as exc:
+
+        raise ValueError(
+            'Model history contains invalid coefficients.'
+        ) from exc
+
+    if not all(
+        math.isfinite(value)
+        for value in coefficient_values
+    ):
+        raise ValueError(
+            'Model coefficients contain a non-finite value.'
+        )
+
+    # ------------------------------------------------------
+    # Intercept
+    # ------------------------------------------------------
+
+    intercept = model_history.get(
+        'intercept'
+    )
 
     if intercept is None:
         raise ValueError(
             'Model history contains no intercept.'
         )
 
+    try:
+
+        intercept_value = float(
+            intercept
+        )
+
+    except (
+        TypeError,
+        ValueError,
+    ) as exc:
+
+        raise ValueError(
+            'Model history contains an invalid intercept.'
+        ) from exc
+
+    if not math.isfinite(
+        intercept_value
+    ):
+        raise ValueError(
+            'Model intercept is not finite.'
+        )
+
+    # ------------------------------------------------------
+    # Reconstruct model
+    # ------------------------------------------------------
+
     model = LinearRegression()
 
-    # ------------------------------------------------------
-    # Reconstruct fitted model parameters
-    # ------------------------------------------------------
-
     model.coef_ = np.asarray(
-        [
-            float(value)
-            for value in coefficients
-        ],
+        coefficient_values,
         dtype=float,
     )
 
-    model.intercept_ = float(
-        intercept
-    )
+    model.intercept_ = intercept_value
 
     # ------------------------------------------------------
-    # Required fitted-model attributes
+    # sklearn fitted-model metadata
     # ------------------------------------------------------
 
     model.n_features_in_ = len(
         feature_names
     )
 
+    # ------------------------------------------------------
+    # Build training-result-compatible structure
+    # ------------------------------------------------------
+
     return {
-        'model': model,
-        'feature_names': feature_names,
+        'model':
+            model,
+
+        'feature_names':
+            feature_names,
+
         'training_rows':
-            model_history.get(
-                'training_rows',
-                0,
+            int(
+                model_history.get(
+                    'training_rows',
+                    0,
+                )
+                or 0
             ),
+
         'target_name':
             'Target_Expense_Total',
+
         'model_history_id':
-            model_history.get('id'),
+            model_history.get(
+                'id'
+            ),
     }
 
 
