@@ -303,12 +303,6 @@ def create_pattern_targets_daily(
                 )
             ),
 
-        f'Target_Travel_Day_{horizon_name}':
-            int(
-                _is_travel_day(
-                    future_row
-                )
-            ),
 
         f'Target_Special_Day_{horizon_name}':
             int(
@@ -373,13 +367,6 @@ def create_pattern_targets_period(
                 )
             ),
 
-        f'Target_Travel_Day_{horizon_name}':
-            int(
-                any(
-                    _is_travel_day(row)
-                    for row in future_rows
-                )
-            ),
 
         f'Target_Special_Day_{horizon_name}':
             int(

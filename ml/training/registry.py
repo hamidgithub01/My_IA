@@ -2,6 +2,31 @@ import json
 
 from database.connection import get_connection
 
+def _decode_json_field(
+    value,
+    default,
+):
+    if value is None:
+        return default
+
+    if isinstance(
+        value,
+        str,
+    ):
+        return json.loads(
+            value
+        )
+
+    if isinstance(
+        value,
+        (list, dict),
+    ):
+        return value
+
+    raise ValueError(
+        'Invalid JSON field type.'
+    )
+
 
 # ==========================================================
 # MODEL REGISTRY
@@ -56,24 +81,24 @@ def get_latest_model_history():
         # Decode JSON fields
         # --------------------------------------------------
 
-        row['feature_names'] = json.loads(
-            row['feature_names']
-            or '[]'
+        row['feature_names'] = _decode_json_field(
+            row['feature_names'],
+            []
         )
 
-        row['coefficients'] = json.loads(
-            row['coefficients']
-            or '[]'
+        row['coefficients'] = _decode_json_field(
+            row['coefficients'],
+            []
         )
 
-        row['feature_means'] = json.loads(
-            row['feature_means']
-            or '{}'
+        row['feature_means'] = _decode_json_field(
+            row['feature_means'],
+            {}
         )
 
-        row['feature_scales'] = json.loads(
-            row['feature_scales']
-            or '{}'
+        row['feature_scales'] = _decode_json_field(
+            row['feature_scales'],
+            {}
         )
 
         return row
@@ -141,24 +166,24 @@ def get_model_history_by_id(
         # Decode JSON fields
         # --------------------------------------------------
 
-        row['feature_names'] = json.loads(
-            row['feature_names']
-            or '[]'
+        row['feature_names'] = _decode_json_field(
+            row['feature_names'],
+            []
         )
 
-        row['coefficients'] = json.loads(
-            row['coefficients']
-            or '[]'
+        row['coefficients'] = _decode_json_field(
+            row['coefficients'],
+            []
         )
 
-        row['feature_means'] = json.loads(
-            row['feature_means']
-            or '{}'
+        row['feature_means'] = _decode_json_field(
+            row['feature_means'],
+            {}
         )
 
-        row['feature_scales'] = json.loads(
-            row['feature_scales']
-            or '{}'
+        row['feature_scales'] = _decode_json_field(
+            row['feature_scales'],
+            {}
         )
 
         return row
@@ -167,3 +192,4 @@ def get_model_history_by_id(
 
         cursor.close()
         connection.close()
+

@@ -1081,3 +1081,52 @@ if __name__ == '__main__':
     print(
         '========== MODEL DATASET TEST PASSED =========='
     )
+
+    # =========================================================
+# TARGET CLASS COUNT
+# =========================================================
+
+def get_target_class_count(
+    dataset,
+    target_name,
+):
+    """
+    Return the number of unique classes in a categorical
+    target.
+
+    This function is intended for classification and
+    multiclass model selection.
+
+    Examples:
+
+        [0, 1, 0, 1]
+            -> 2
+
+        [0, 1, 2, 0, 2]
+            -> 3
+
+    Numeric regression targets do not require class count.
+    """
+
+    validate_target_name(
+        target_name
+    )
+
+    values = [
+        row.get(target_name)
+        for row in dataset
+        if not _is_missing(
+            row.get(target_name)
+        )
+    ]
+
+    if not values:
+        return 0
+
+    unique_values = set(
+        values
+    )
+
+    return len(
+        unique_values
+    )

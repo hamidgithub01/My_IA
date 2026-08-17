@@ -196,6 +196,15 @@ def load_model_from_history(
     # Build training-result-compatible structure
     # ------------------------------------------------------
 
+    target_name = model_history.get(
+        'target_name'
+    )
+
+    if not target_name:
+        raise ValueError(
+            'Model history contains no target name.'
+        )
+
     return {
         'model':
             model,
@@ -213,7 +222,7 @@ def load_model_from_history(
             ),
 
         'target_name':
-            'Target_Expense_Total',
+            target_name,
 
         'model_history_id':
             model_history.get(

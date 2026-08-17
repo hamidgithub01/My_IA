@@ -4,6 +4,10 @@ from sklearn.metrics import (
     mean_absolute_error,
     mean_squared_error,
     r2_score,
+    accuracy_score,
+    precision_score,
+    recall_score,
+    f1_score,
 )
 
 
@@ -19,21 +23,17 @@ def calculate_metrics(
     Calculate regression evaluation metrics.
 
     Returns:
-        dict containing:
 
-        - mae
-        - rmse
-        - r_squared
+        mae
+        rmse
+        r_squared
 
-    Important:
+    Notes:
 
-        A target value of 0.0 is a valid observation.
-
-        R² requires at least two observations and a
-        non-constant true target.
-
-        When R² cannot be calculated meaningfully,
-        r_squared is returned as None.
+        - Zero is a valid target value.
+        - R² requires at least two observations.
+        - R² is not meaningful when all true values are equal.
+        - All values must be finite numeric values.
     """
 
     if y_true is None or y_pred is None:
@@ -53,18 +53,28 @@ def calculate_metrics(
         )
 
     # ------------------------------------------------------
-    # Convert values to float
+    # Convert to float
     # ------------------------------------------------------
 
-    true_values = [
-        float(value)
-        for value in y_true
-    ]
+    try:
+        true_values = [
+            float(value)
+            for value in y_true
+        ]
 
-    predicted_values = [
-        float(value)
-        for value in y_pred
-    ]
+        predicted_values = [
+            float(value)
+            for value in y_pred
+        ]
+
+    except (
+        TypeError,
+        ValueError,
+    ) as exc:
+
+        raise ValueError(
+            'Regression metric values must be numeric.'
+        ) from exc
 
     # ------------------------------------------------------
     # Validate finite values
@@ -104,18 +114,12 @@ def calculate_metrics(
         predicted_values,
     )
 
-    rmse = mse ** 0.5
+    rmse = math.sqrt(
+        float(mse)
+    )
 
     # ------------------------------------------------------
     # R²
-    #
-    # R² is not meaningful when:
-    #
-    #   - fewer than two observations exist
-    #   - all true target values are identical
-    #
-    # A real target value of 0.0 does NOT make R² invalid
-    # by itself.
     # ------------------------------------------------------
 
     r_squared = None
@@ -141,11 +145,173 @@ def calculate_metrics(
                 )
 
     # ------------------------------------------------------
-    # Final result
+    # Result
     # ------------------------------------------------------
 
     return {
         'mae': float(mae),
         'rmse': float(rmse),
         'r_squared': r_squared,
+    }
+
+
+# ==========================================================
+# CLASSIFICATION METRICS
+# ==========================================================
+
+def calculate_classification_metrics(
+    y_true,
+    y_pred,
+    average='weighted',
+):
+    """
+    Calculate safe classification metrics.
+
+    Supports:
+
+        - Binary classification
+        - Multiclass classification
+
+    Metrics:
+
+        - accuracy
+        - precision
+        - recall
+        - f1
+
+    Averaging:
+
+        binary
+        macro
+        weighted
+        micro
+        samples
+        None
+
+    Important:
+
+        This function does NOT guess whether the problem is
+        binary or multiclass.
+
+        The evaluation layer determines the appropriate
+        averaging strategy.
+
+        zero_division=0 is used to prevent metric failures
+        when a class has no predicted samples.
+    """
+
+    if y_true is None or y_pred is None:
+        raise ValueError(
+            'y_true and y_pred are required.'
+        )
+
+    if len(y_true) == 0:
+        raise ValueError(
+            'At least one observation is required '
+            'for metric calculation.'
+        )
+
+    if len(y_true) != len(y_pred):
+        raise ValueError(
+            'y_true and y_pred must have the same length.'
+        )
+
+    # ------------------------------------------------------
+    # Validate averaging strategy
+    # ------------------------------------------------------
+
+    allowed_averages = {
+        'binary',
+        'macro',
+        'weighted',
+        'micro',
+        'samples',
+        None,
+    }
+
+    if average not in allowed_averages:
+
+        raise ValueError(
+            'Unsupported classification averaging strategy: '
+            f'{average!r}.'
+        )
+
+    # ------------------------------------------------------
+    # Validate classes
+    # ------------------------------------------------------
+
+    true_classes = set(
+        y_true
+    )
+
+    if len(true_classes) < 2:
+
+        raise ValueError(
+            'Classification metrics require at least '
+            'two distinct classes in y_true.'
+        )
+
+    # ------------------------------------------------------
+    # Binary averaging safety
+    # ------------------------------------------------------
+
+    if average == 'binary':
+
+        if len(true_classes) != 2:
+
+            raise ValueError(
+                'average="binary" requires exactly two '
+                'classes in y_true.'
+            )
+
+    # ------------------------------------------------------
+    # Metrics
+    # ------------------------------------------------------
+
+    accuracy = accuracy_score(
+        y_true,
+        y_pred,
+    )
+
+    precision = precision_score(
+        y_true,
+        y_pred,
+        average=average,
+        zero_division=0,
+    )
+
+    recall = recall_score(
+        y_true,
+        y_pred,
+        average=average,
+        zero_division=0,
+    )
+
+    f1 = f1_score(
+        y_true,
+        y_pred,
+        average=average,
+        zero_division=0,
+    )
+
+    # ------------------------------------------------------
+    # Result
+    # ------------------------------------------------------
+
+    return {
+        'accuracy': float(
+            accuracy
+        ),
+
+        'precision': float(
+            precision
+        ),
+
+        'recall': float(
+            recall
+        ),
+
+        'f1': float(
+            f1
+        ),
     }

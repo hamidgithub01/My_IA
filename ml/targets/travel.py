@@ -120,12 +120,13 @@ def create_travel_targets(
 
     Daily horizons:
 
-        1D ... 30D
+        Defined by DAILY_HORIZONS.
 
-    Period summary horizons:
+    Period horizons:
 
-        7D_SUMMARY
-        30D_SUMMARY
+        8_15D
+        16_30D
+        30D
     """
 
     if future_rows is None:
@@ -136,12 +137,7 @@ def create_travel_targets(
     # DAILY HORIZONS
     # =====================================================
 
-    daily_horizons = {
-        f'{days}D'
-        for days in range(1, 31)
-    }
-
-    if horizon_name in daily_horizons:
+    if horizon_name in DAILY_HORIZONS:
 
         future_row = (
             future_rows[0]
@@ -155,15 +151,10 @@ def create_travel_targets(
         )
 
     # =====================================================
-    # PERIOD SUMMARY HORIZONS
+    # PERIOD HORIZONS
     # =====================================================
 
-    period_horizons = {
-        '7D_SUMMARY',
-        '30D_SUMMARY',
-    }
-
-    if horizon_name in period_horizons:
+    if horizon_name in PERIOD_HORIZONS:
 
         return create_travel_targets_period(
             future_rows,

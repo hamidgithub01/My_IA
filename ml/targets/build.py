@@ -412,9 +412,6 @@ def _nan_targets(horizon_name):
         f'Target_Active_Day_{horizon_name}':
             nan,
 
-        f'Target_Travel_Day_{horizon_name}':
-            nan,
-
         f'Target_Special_Day_{horizon_name}':
             nan,
 
