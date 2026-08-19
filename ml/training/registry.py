@@ -55,21 +55,133 @@ def get_latest_model_history():
                 id,
                 trained_at,
                 algorithm,
+                model_type,
                 target_name,
+                target_task,
+                target_type,
+                class_count,
                 training_rows,
                 feature_names,
                 coefficients,
+                classes,
                 intercept,
                 feature_means,
                 feature_scales,
                 mae,
                 rmse,
                 r_squared,
+                evaluation_status,
+                evaluation_metrics,
                 reused_previous_state
             FROM model_history
             ORDER BY id DESC
             LIMIT 1
             """
+        )
+
+        row = cursor.fetchone()
+
+        if row is None:
+            return None
+
+        # --------------------------------------------------
+        # Decode JSON fields
+        # --------------------------------------------------
+
+        row['feature_names'] = _decode_json_field(
+            row['feature_names'],
+            []
+        )
+
+        row['coefficients'] = _decode_json_field(
+            row['coefficients'],
+            []
+        )
+
+        row['classes'] = _decode_json_field(
+            row['classes'],
+            []
+        )
+
+        row['feature_means'] = _decode_json_field(
+            row['feature_means'],
+            {}
+        )
+
+        row['feature_scales'] = _decode_json_field(
+            row['feature_scales'],
+            {}
+        )
+
+        row['evaluation_metrics'] = _decode_json_field(
+            row['evaluation_metrics'],
+            {}
+        )
+
+        return row
+
+    finally:
+
+        cursor.close()
+        connection.close()
+
+def get_latest_model_history_by_target(
+    target_name,
+):
+    """
+    Return the most recently saved model history record
+    for a specific target.
+
+    Returns:
+        Dictionary containing the latest model information
+        for the target, or None when no model exists.
+    """
+
+    if not target_name:
+        raise ValueError(
+            'target_name is required.'
+        )
+
+    connection = get_connection()
+
+    try:
+
+        cursor = connection.cursor(
+            dictionary=True
+        )
+
+        cursor.execute(
+            """
+            SELECT
+                id,
+                trained_at,
+                algorithm,
+                model_type,
+                target_name,
+                target_task,
+                target_type,
+                class_count,
+                training_rows,
+                feature_names,
+                coefficients,
+                classes,
+                intercept,
+                feature_means,
+                feature_scales,
+                mae,
+                rmse,
+                r_squared,
+                evaluation_status,
+                evaluation_metrics,
+                reused_previous_state
+            FROM model_history
+            WHERE target_name = %s
+            ORDER BY id DESC
+            LIMIT 1
+            """,
+            (
+                target_name,
+            ),
         )
 
         row = cursor.fetchone()
@@ -108,7 +220,6 @@ def get_latest_model_history():
         cursor.close()
         connection.close()
 
-
 def get_model_history_by_id(
     model_history_id,
 ):
@@ -138,15 +249,23 @@ def get_model_history_by_id(
                 id,
                 trained_at,
                 algorithm,
+                model_type,
+                target_name,
+                target_task,
+                target_type,
+                class_count,
                 training_rows,
                 feature_names,
                 coefficients,
+                classes,
                 intercept,
                 feature_means,
                 feature_scales,
                 mae,
                 rmse,
                 r_squared,
+                evaluation_status,
+                evaluation_metrics,
                 reused_previous_state
             FROM model_history
             WHERE id = %s

@@ -57,18 +57,36 @@ def create_synthetic_model():
     return model
 
 
-def create_synthetic_training_result(
-    evaluation_result=None,
-):
+# ==========================================================
+# SYNTHETIC TRAINING RESULT
+# ==========================================================
+
+def create_synthetic_training_result():
     """
-    Build a synthetic training-result structure.
+    Create a synthetic training result that follows
+    the current unified training-result contract.
     """
 
     model = create_synthetic_model()
 
-    result = {
+    return {
         'model':
             model,
+
+        'target_name':
+            'Target_Expense_Total_1D',
+
+        'target_task':
+            'regression',
+
+        'target_type':
+            'numeric',
+
+        'model_type':
+            'regression',
+
+        'algorithm':
+            'LinearRegression',
 
         'feature_names':
             [
@@ -78,19 +96,12 @@ def create_synthetic_training_result(
 
         'training_rows':
             5,
-
-        'target_name':
-            'Target_Expense_Total_1D',
     }
 
-    if evaluation_result is not None:
 
-        result['evaluation_result'] = (
-            evaluation_result
-        )
-
-    return result
-
+# ==========================================================
+# SYNTHETIC EVALUATION RESULT
+# ==========================================================
 
 def create_synthetic_evaluation_result():
     """
@@ -112,6 +123,10 @@ def create_synthetic_evaluation_result():
     }
 
 
+# ==========================================================
+# SYNTHETIC MODEL HISTORY
+# ==========================================================
+
 def create_synthetic_history(
     model_history_id=101,
 ):
@@ -131,8 +146,20 @@ def create_synthetic_history(
         'algorithm':
             'LinearRegression',
 
+        'model_type':
+            'regression',
+
         'target_name':
             'Target_Expense_Total_1D',
+
+        'target_task':
+            'regression',
+
+        'target_type':
+            'numeric',
+
+        'class_count':
+            None,
 
         'training_rows':
             5,
@@ -148,6 +175,9 @@ def create_synthetic_history(
                 float(value)
                 for value in model.coef_
             ],
+
+        'classes':
+            None,
 
         'intercept':
             float(
@@ -169,10 +199,19 @@ def create_synthetic_history(
         'r_squared':
             0.95,
 
+        'evaluation_status':
+            'valid',
+
+        'evaluation_metrics':
+            {
+                'mae': 1.25,
+                'rmse': 2.50,
+                'r_squared': 0.95,
+            },
+
         'reused_previous_state':
             False,
     }
-
 
 # ==========================================================
 # MOCK DATABASE
@@ -300,28 +339,69 @@ def test_save_model_parameters():
 
     # ------------------------------------------------------
     # Expected parameter positions
+    #
+    # 0  = trained_at
+    # 1  = algorithm
+    # 2  = model_type
+    # 3  = target_name
+    # 4  = target_task
+    # 5  = target_type
+    # 6  = class_count
+    # 7  = training_rows
+    # 8  = feature_names
+    # 9  = coefficients
+    # 10 = classes
+    # 11 = intercept
+    # 12 = feature_means
+    # 13 = feature_scales
+    # 14 = mae
+    # 15 = rmse
+    # 16 = r_squared
+    # 17 = evaluation_status
+    # 18 = evaluation_metrics
+    # 19 = reused_previous_state
     # ------------------------------------------------------
 
     algorithm = parameters[1]
 
-    target_name = parameters[2]
+    model_type = parameters[2]
 
-    training_rows = parameters[3]
+    target_name = parameters[3]
 
-    feature_names_json = parameters[4]
+    target_task = parameters[4]
 
-    coefficients_json = parameters[5]
+    target_type = parameters[5]
 
-    intercept = parameters[6]
+    class_count = parameters[6]
 
-    feature_means_json = parameters[7]
+    training_rows = parameters[7]
 
-    feature_scales_json = parameters[8]
+    feature_names_json = parameters[8]
+
+    coefficients_json = parameters[9]
+
+    classes_json = parameters[10]
+
+    intercept = parameters[11]
+
+    feature_means_json = parameters[12]
+
+    feature_scales_json = parameters[13]
+
+    # ------------------------------------------------------
+    # Model metadata
+    # ------------------------------------------------------
 
     if algorithm != 'LinearRegression':
 
         raise AssertionError(
             'Algorithm was not saved correctly.'
+        )
+
+    if model_type != 'regression':
+
+        raise AssertionError(
+            'Model type was not saved correctly.'
         )
 
     if target_name != (
@@ -332,11 +412,33 @@ def test_save_model_parameters():
             'Target name was not saved correctly.'
         )
 
+    if target_task != 'regression':
+
+        raise AssertionError(
+            'Target task was not saved correctly.'
+        )
+
+    if target_type != 'numeric':
+
+        raise AssertionError(
+            'Target type was not saved correctly.'
+        )
+
+    if class_count is not None:
+
+        raise AssertionError(
+            'Regression class_count must be None.'
+        )
+
     if training_rows != 5:
 
         raise AssertionError(
             'Training row count was not saved correctly.'
         )
+
+    # ------------------------------------------------------
+    # Feature names
+    # ------------------------------------------------------
 
     if json.loads(
         feature_names_json
@@ -347,6 +449,10 @@ def test_save_model_parameters():
         raise AssertionError(
             'Feature names were not serialized correctly.'
         )
+
+    # ------------------------------------------------------
+    # Coefficients
+    # ------------------------------------------------------
 
     if json.loads(
         coefficients_json
@@ -359,6 +465,20 @@ def test_save_model_parameters():
             'Coefficients were not serialized correctly.'
         )
 
+    # ------------------------------------------------------
+    # Classes
+    # ------------------------------------------------------
+
+    if classes_json is not None:
+
+        raise AssertionError(
+            'Regression classes must be None.'
+        )
+
+    # ------------------------------------------------------
+    # Intercept
+    # ------------------------------------------------------
+
     if abs(
         float(intercept)
         - float(model.intercept_)
@@ -368,6 +488,10 @@ def test_save_model_parameters():
             'Intercept was not saved correctly.'
         )
 
+    # ------------------------------------------------------
+    # Feature means
+    # ------------------------------------------------------
+
     if json.loads(
         feature_means_json
     ) != {}:
@@ -375,6 +499,10 @@ def test_save_model_parameters():
         raise AssertionError(
             'Feature means were not saved correctly.'
         )
+
+    # ------------------------------------------------------
+    # Feature scales
+    # ------------------------------------------------------
 
     if json.loads(
         feature_scales_json
@@ -425,11 +553,23 @@ def test_save_evaluation_metrics():
         cursor.execute.call_args.args[1]
     )
 
-    mae = parameters[9]
+    # ------------------------------------------------------
+    # Evaluation fields
+    # ------------------------------------------------------
 
-    rmse = parameters[10]
+    mae = parameters[14]
 
-    r_squared = parameters[11]
+    rmse = parameters[15]
+
+    r_squared = parameters[16]
+
+    evaluation_status = parameters[17]
+
+    evaluation_metrics_json = parameters[18]
+
+    # ------------------------------------------------------
+    # Metrics
+    # ------------------------------------------------------
 
     if mae != 1.25:
 
@@ -447,6 +587,34 @@ def test_save_evaluation_metrics():
 
         raise AssertionError(
             'R-squared was not saved correctly.'
+        )
+
+    # ------------------------------------------------------
+    # Evaluation status
+    # ------------------------------------------------------
+
+    if evaluation_status != 'valid':
+
+        raise AssertionError(
+            'Evaluation status was not saved correctly.'
+        )
+
+    # ------------------------------------------------------
+    # Evaluation metrics JSON
+    # ------------------------------------------------------
+
+    evaluation_metrics = json.loads(
+        evaluation_metrics_json
+    )
+
+    if evaluation_metrics != {
+        'mae': 1.25,
+        'rmse': 2.50,
+        'r_squared': 0.95,
+    }:
+
+        raise AssertionError(
+            'Evaluation metrics were not serialized correctly.'
         )
 
     print(
@@ -470,6 +638,12 @@ def test_zero_metrics_are_preserved():
             'rmse': 0.0,
             'r_squared': 0.0,
         },
+
+        'evaluation_status':
+            'valid',
+
+        'evaluation_valid':
+            True,
     }
 
     training_result = (
@@ -494,19 +668,24 @@ def test_zero_metrics_are_preserved():
         cursor.execute.call_args.args[1]
     )
 
-    if parameters[9] != 0.0:
+    # ------------------------------------------------------
+    # IMPORTANT:
+    # Metrics are at positions 14, 15, 16.
+    # ------------------------------------------------------
+
+    if parameters[14] != 0.0:
 
         raise AssertionError(
             'MAE = 0.0 was incorrectly discarded.'
         )
 
-    if parameters[10] != 0.0:
+    if parameters[15] != 0.0:
 
         raise AssertionError(
             'RMSE = 0.0 was incorrectly discarded.'
         )
 
-    if parameters[11] != 0.0:
+    if parameters[16] != 0.0:
 
         raise AssertionError(
             'R-squared = 0.0 was incorrectly discarded.'
@@ -535,10 +714,13 @@ def test_invalid_training_result():
 
         {
             'model': None,
+
             'feature_names': [
                 'Feature_1'
             ],
+
             'training_rows': 5,
+
             'target_name':
                 'Target_Expense_Total_1D',
         },
@@ -744,7 +926,6 @@ def test_invalid_model_parameters():
         'Invalid model parameter handling: PASSED'
     )
 
-
 # ==========================================================
 # LOAD MODEL TEST
 # ==========================================================
@@ -807,6 +988,115 @@ def test_load_model_from_history():
 
     print(
         f"Target: {loaded_result['target_name']}"
+    )
+
+
+# ==========================================================
+# LOAD METADATA TEST
+# ==========================================================
+
+def test_loaded_model_metadata():
+    print()
+    print(
+        '========== LOADED MODEL METADATA TEST =========='
+    )
+
+    history = (
+        create_synthetic_history()
+    )
+
+    loaded_result = (
+        load_model_from_history(
+            history
+        )
+    )
+
+    # ------------------------------------------------------
+    # Model type
+    # ------------------------------------------------------
+
+    if loaded_result.get(
+        'model_type'
+    ) != history[
+        'model_type'
+    ]:
+
+        raise AssertionError(
+            'Model type was not preserved.'
+        )
+
+    # ------------------------------------------------------
+    # Target task
+    # ------------------------------------------------------
+
+    if loaded_result.get(
+        'target_task'
+    ) != history[
+        'target_task'
+    ]:
+
+        raise AssertionError(
+            'Target task was not preserved.'
+        )
+
+    # ------------------------------------------------------
+    # Target type
+    # ------------------------------------------------------
+
+    if loaded_result.get(
+        'target_type'
+    ) != history[
+        'target_type'
+    ]:
+
+        raise AssertionError(
+            'Target type was not preserved.'
+        )
+
+    # ------------------------------------------------------
+    # Class count
+    # ------------------------------------------------------
+
+    if loaded_result.get(
+        'class_count'
+    ) != history[
+        'class_count'
+    ]:
+
+        raise AssertionError(
+            'Class count was not preserved.'
+        )
+
+    # ------------------------------------------------------
+    # Evaluation status
+    # ------------------------------------------------------
+
+    if loaded_result.get(
+        'evaluation_status'
+    ) != history[
+        'evaluation_status'
+    ]:
+
+        raise AssertionError(
+            'Evaluation status was not preserved.'
+        )
+
+    # ------------------------------------------------------
+    # Evaluation metrics
+    # ------------------------------------------------------
+
+    if loaded_result.get(
+        'evaluation_metrics'
+    ) != history[
+        'evaluation_metrics'
+    ]:
+
+        raise AssertionError(
+            'Evaluation metrics were not preserved.'
+        )
+
+    print(
+        'Loaded model metadata: PASSED'
     )
 
 
@@ -974,10 +1264,13 @@ def test_invalid_history():
         {
             'algorithm':
                 'RandomForest',
+
             'feature_names':
                 ['Feature_1'],
+
             'coefficients':
                 [1.0],
+
             'intercept':
                 0.0,
         },
@@ -985,10 +1278,13 @@ def test_invalid_history():
         {
             'algorithm':
                 'LinearRegression',
+
             'feature_names':
                 [],
+
             'coefficients':
                 [1.0],
+
             'intercept':
                 0.0,
         },
@@ -996,10 +1292,13 @@ def test_invalid_history():
         {
             'algorithm':
                 'LinearRegression',
+
             'feature_names':
                 ['Feature_1'],
+
             'coefficients':
                 [],
+
             'intercept':
                 0.0,
         },
@@ -1007,10 +1306,13 @@ def test_invalid_history():
         {
             'algorithm':
                 'LinearRegression',
+
             'feature_names':
                 ['Feature_1'],
+
             'coefficients':
                 [1.0, 2.0],
+
             'intercept':
                 0.0,
         },
@@ -1018,10 +1320,13 @@ def test_invalid_history():
         {
             'algorithm':
                 'LinearRegression',
+
             'feature_names':
                 ['Feature_1'],
+
             'coefficients':
                 [np.nan],
+
             'intercept':
                 0.0,
         },
@@ -1029,10 +1334,13 @@ def test_invalid_history():
         {
             'algorithm':
                 'LinearRegression',
+
             'feature_names':
                 ['Feature_1'],
+
             'coefficients':
                 [1.0],
+
             'intercept':
                 np.inf,
         },
@@ -1040,10 +1348,13 @@ def test_invalid_history():
         {
             'algorithm':
                 'LinearRegression',
+
             'feature_names':
                 ['Feature_1'],
+
             'coefficients':
                 [1.0],
+
             'intercept':
                 None,
         },
@@ -1121,6 +1432,38 @@ def test_registry_latest_model():
             'Latest model target name is incorrect.'
         )
 
+    if result.get(
+        'model_type'
+    ) != 'regression':
+
+        raise AssertionError(
+            'Latest model type is incorrect.'
+        )
+
+    if result.get(
+        'target_task'
+    ) != 'regression':
+
+        raise AssertionError(
+            'Latest model target task is incorrect.'
+        )
+
+    if result.get(
+        'target_type'
+    ) != 'numeric':
+
+        raise AssertionError(
+            'Latest model target type is incorrect.'
+        )
+
+    if result.get(
+        'class_count'
+    ) is not None:
+
+        raise AssertionError(
+            'Regression class_count must be None.'
+        )
+
     if not cursor.execute.called:
 
         raise AssertionError(
@@ -1185,6 +1528,22 @@ def test_registry_model_by_id():
             'Target name was not returned by registry.'
         )
 
+    if result.get(
+        'model_type'
+    ) != 'regression':
+
+        raise AssertionError(
+            'Model type was not returned by registry.'
+        )
+
+    if result.get(
+        'target_task'
+    ) != 'regression':
+
+        raise AssertionError(
+            'Target task was not returned by registry.'
+        )
+
     parameters = (
         cursor.execute.call_args.args[1]
     )
@@ -1216,7 +1575,10 @@ def test_registry_json_decoding():
         )
     )
 
+    # ------------------------------------------------------
     # Simulate actual database representation.
+    # ------------------------------------------------------
+
     history['feature_names'] = json.dumps(
         history['feature_names']
     )
@@ -1231,6 +1593,10 @@ def test_registry_json_decoding():
 
     history['feature_scales'] = json.dumps(
         history['feature_scales']
+    )
+
+    history['evaluation_metrics'] = json.dumps(
+        history['evaluation_metrics']
     )
 
     connection, _ = (
@@ -1248,6 +1614,10 @@ def test_registry_json_decoding():
             get_latest_model_history()
         )
 
+    # ------------------------------------------------------
+    # Feature names
+    # ------------------------------------------------------
+
     if not isinstance(
         result['feature_names'],
         list,
@@ -1256,6 +1626,10 @@ def test_registry_json_decoding():
         raise AssertionError(
             'Feature names were not decoded into a list.'
         )
+
+    # ------------------------------------------------------
+    # Coefficients
+    # ------------------------------------------------------
 
     if not isinstance(
         result['coefficients'],
@@ -1266,6 +1640,10 @@ def test_registry_json_decoding():
             'Coefficients were not decoded into a list.'
         )
 
+    # ------------------------------------------------------
+    # Feature means
+    # ------------------------------------------------------
+
     if not isinstance(
         result['feature_means'],
         dict,
@@ -1275,6 +1653,10 @@ def test_registry_json_decoding():
             'Feature means were not decoded into a dictionary.'
         )
 
+    # ------------------------------------------------------
+    # Feature scales
+    # ------------------------------------------------------
+
     if not isinstance(
         result['feature_scales'],
         dict,
@@ -1282,6 +1664,31 @@ def test_registry_json_decoding():
 
         raise AssertionError(
             'Feature scales were not decoded into a dictionary.'
+        )
+
+    # ------------------------------------------------------
+    # Evaluation metrics
+    # ------------------------------------------------------
+
+    if not isinstance(
+        result['evaluation_metrics'],
+        dict,
+    ):
+
+        raise AssertionError(
+            'Evaluation metrics were not decoded into a dictionary.'
+        )
+
+    if result[
+        'evaluation_metrics'
+    ] != {
+        'mae': 1.25,
+        'rmse': 2.50,
+        'r_squared': 0.95,
+    }:
+
+        raise AssertionError(
+            'Evaluation metrics were decoded incorrectly.'
         )
 
     print(
@@ -1394,7 +1801,7 @@ def test_load_model_by_id():
     )
 
     with patch(
-        'ml.training.load.get_model_history_by_id',
+        'ml.training.registry.get_model_history_by_id',
         return_value=history,
     ):
 
@@ -1523,7 +1930,83 @@ def test_full_persistence_integration():
         )
 
     # ------------------------------------------------------
-    # 3. Build synthetic DB history
+    # 3. Verify saved parameters
+    # ------------------------------------------------------
+
+    parameters = (
+        cursor.execute.call_args.args[1]
+    )
+
+    if parameters[1] != 'LinearRegression':
+
+        raise AssertionError(
+            'Saved algorithm is incorrect.'
+        )
+
+    if parameters[2] != 'regression':
+
+        raise AssertionError(
+            'Saved model type is incorrect.'
+        )
+
+    if parameters[3] != (
+        'Target_Expense_Total_1D'
+    ):
+
+        raise AssertionError(
+            'Saved target name is incorrect.'
+        )
+
+    if parameters[4] != 'regression':
+
+        raise AssertionError(
+            'Saved target task is incorrect.'
+        )
+
+    if parameters[5] != 'numeric':
+
+        raise AssertionError(
+            'Saved target type is incorrect.'
+        )
+
+    if parameters[6] is not None:
+
+        raise AssertionError(
+            'Saved regression class count must be None.'
+        )
+
+    if parameters[7] != 5:
+
+        raise AssertionError(
+            'Saved training rows are incorrect.'
+        )
+
+    if parameters[14] != 1.25:
+
+        raise AssertionError(
+            'Saved MAE is incorrect.'
+        )
+
+    if parameters[15] != 2.50:
+
+        raise AssertionError(
+            'Saved RMSE is incorrect.'
+        )
+
+    if parameters[16] != 0.95:
+
+        raise AssertionError(
+            'Saved R-squared is incorrect.'
+        )
+
+    if parameters[17] != 'valid':
+
+        raise AssertionError(
+            'Saved evaluation status is incorrect.'
+        )
+
+    # ------------------------------------------------------
+    # 4. Build synthetic DB history
     # ------------------------------------------------------
 
     history = (
@@ -1533,7 +2016,7 @@ def test_full_persistence_integration():
     )
 
     # ------------------------------------------------------
-    # 4. Load
+    # 5. Load
     # ------------------------------------------------------
 
     loaded_result = (
@@ -1547,7 +2030,7 @@ def test_full_persistence_integration():
     )
 
     # ------------------------------------------------------
-    # 5. Predictions
+    # 6. Predictions
     # ------------------------------------------------------
 
     X = np.array([
@@ -1565,7 +2048,7 @@ def test_full_persistence_integration():
     )
 
     # ------------------------------------------------------
-    # 6. Compare
+    # 7. Compare predictions
     # ------------------------------------------------------
 
     if not np.allclose(
@@ -1578,6 +2061,10 @@ def test_full_persistence_integration():
             'Predictions changed after persistence.'
         )
 
+    # ------------------------------------------------------
+    # 8. Compare feature names
+    # ------------------------------------------------------
+
     if loaded_result[
         'feature_names'
     ] != training_result[
@@ -1588,6 +2075,10 @@ def test_full_persistence_integration():
             'Feature names changed after persistence.'
         )
 
+    # ------------------------------------------------------
+    # 9. Compare target
+    # ------------------------------------------------------
+
     if loaded_result[
         'target_name'
     ] != training_result[
@@ -1596,6 +2087,62 @@ def test_full_persistence_integration():
 
         raise AssertionError(
             'Target name changed after persistence.'
+        )
+
+    # ------------------------------------------------------
+    # 10. Compare metadata
+    # ------------------------------------------------------
+
+    if loaded_result.get(
+        'model_type'
+    ) != 'regression':
+
+        raise AssertionError(
+            'Model type changed after persistence.'
+        )
+
+    if loaded_result.get(
+        'target_task'
+    ) != 'regression':
+
+        raise AssertionError(
+            'Target task changed after persistence.'
+        )
+
+    if loaded_result.get(
+        'target_type'
+    ) != 'numeric':
+
+        raise AssertionError(
+            'Target type changed after persistence.'
+        )
+
+    if loaded_result.get(
+        'class_count'
+    ) is not None:
+
+        raise AssertionError(
+            'Class count changed after persistence.'
+        )
+
+    if loaded_result.get(
+        'evaluation_status'
+    ) != 'valid':
+
+        raise AssertionError(
+            'Evaluation status changed after persistence.'
+        )
+
+    if loaded_result.get(
+        'evaluation_metrics'
+    ) != {
+        'mae': 1.25,
+        'rmse': 2.50,
+        'r_squared': 0.95,
+    }:
+
+        raise AssertionError(
+            'Evaluation metrics changed after persistence.'
         )
 
     print(
@@ -1635,6 +2182,8 @@ if __name__ == '__main__':
     test_invalid_model_parameters()
 
     test_load_model_from_history()
+
+    test_loaded_model_metadata()
 
     test_loaded_model_parameters()
 

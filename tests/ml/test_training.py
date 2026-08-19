@@ -1,234 +1,353 @@
+import pytest
+
 from ml.training.train import train_model
 from ml.evaluation.evaluate import evaluate_model
 
-print()
-print("========== MODEL TRAINING TEST ==========")
 
 # ==========================================================
-# FULL MODEL TRAINING TEST
+# MODEL TRAINING
 # ==========================================================
 
-training_result = train_model()
+def test_model_training():
+    """
+    Verify that the complete training pipeline executes
+    successfully and returns a valid training result.
+    """
 
-print()
-print("Training completed successfully.")
+    training_result = train_model()
 
-print(
-    f"Training rows: "
-    f"{training_result['training_rows']}"
-)
+    assert training_result is not None
+    assert isinstance(training_result, dict)
 
-print(
-    f"Feature count: "
-    f"{len(training_result['feature_names'])}"
-)
+    assert "model" in training_result
+    assert "training_rows" in training_result
+    assert "feature_names" in training_result
 
-print(
-    f"Algorithm: "
-    f"{training_result['model'].__class__.__name__}"  # تصحيح: **class** -> __class__ و **name** -> __name__
-)
+    assert training_result["training_rows"] > 0
+    assert len(training_result["feature_names"]) > 0
 
-# ==========================================================
-# MODEL PARAMETERS
-# ==========================================================
+    model = training_result["model"]
 
-model = training_result['model']
+    assert model is not None
+    assert hasattr(model, "intercept_")
+    assert hasattr(model, "coef_")
 
-print()
-print("========== MODEL PARAMETERS ==========")
-
-print(
-    f"Intercept: "
-    f"{float(model.intercept_)}"
-)
-
-print()
-print("Coefficients:")
-
-for feature, coefficient in zip(
-    training_result['feature_names'],
-    model.coef_,
-):
+    print()
+    print("========== MODEL TRAINING TEST ==========")
+    print()
+    print("Training completed successfully.")
     print(
-        f"{feature}: "
-        f"{float(coefficient)}"
+        f"Training rows: "
+        f"{training_result['training_rows']}"
     )
+    print(
+        f"Feature count: "
+        f"{len(training_result['feature_names'])}"
+    )
+    print(
+        f"Algorithm: "
+        f"{model.__class__.__name__}"
+    )
+
+    print()
+    print("========== MODEL PARAMETERS ==========")
+
+    print(
+        f"Intercept: "
+        f"{float(model.intercept_)}"
+    )
+
+    print()
+    print("Coefficients:")
+
+    for feature, coefficient in zip(
+        training_result["feature_names"],
+        model.coef_,
+    ):
+        print(
+            f"{feature}: "
+            f"{float(coefficient)}"
+        )
+
 
 # ==========================================================
 # CHRONOLOGICAL EVALUATION
 # ==========================================================
 
-print()
-print("========== CHRONOLOGICAL EVALUATION ==========")
+def test_chronological_evaluation():
+    """
+    Verify chronological evaluation using the actual
+    training result produced by the training pipeline.
+    """
 
-try:
+    training_result = train_model()
+
+    assert training_result is not None
+
+    print()
+    print("========== CHRONOLOGICAL EVALUATION ==========")
+
+    try:
+        evaluation_result = evaluate_model(
+            training_result=training_result,
+            test_ratio=0.2,
+            min_test_rows=2,
+        )
+
+    except ValueError as error:
+        pytest.fail(
+            f"Chronological evaluation failed unexpectedly: {error}"
+        )
+
+    assert evaluation_result is not None
+    assert isinstance(evaluation_result, dict)
+
+    assert "training_rows" in evaluation_result
+    assert "testing_rows" in evaluation_result
+    assert "metrics" in evaluation_result
+    assert "testing_dates" in evaluation_result
+    assert "actual_values" in evaluation_result
+    assert "predicted_values" in evaluation_result
+
+    assert evaluation_result["training_rows"] > 0
+    assert evaluation_result["testing_rows"] >= 2
+
+    metrics = evaluation_result["metrics"]
+
+    assert "mae" in metrics
+    assert "rmse" in metrics
+    assert "r_squared" in metrics
+
+    assert metrics["mae"] >= 0
+    assert metrics["rmse"] >= 0
+
+    print()
+    print(
+        f"Training rows: "
+        f"{evaluation_result['training_rows']}"
+    )
+
+    print(
+        f"Testing rows: "
+        f"{evaluation_result['testing_rows']}"
+    )
+
+    print()
+    print(
+        f"MAE: "
+        f"{metrics['mae']:.4f}"
+    )
+
+    print(
+        f"RMSE: "
+        f"{metrics['rmse']:.4f}"
+    )
+
+    r_squared = metrics.get("r_squared")
+
+    if r_squared is None:
+        print(
+            "R²: unavailable "
+            "(insufficient target variation)"
+        )
+    else:
+        print(
+            f"R²: "
+            f"{r_squared:.4f}"
+        )
+
+    evaluation_status = evaluation_result.get(
+        "evaluation_status"
+    )
+
+    evaluation_valid = evaluation_result.get(
+        "evaluation_valid"
+    )
+
+    if evaluation_status is not None:
+        print()
+        print(
+            f"Evaluation status: "
+            f"{evaluation_status}"
+        )
+
+        print(
+            f"Evaluation valid: "
+            f"{evaluation_valid}"
+        )
+
+
+# ==========================================================
+# TARGET VALIDATION
+# ==========================================================
+
+def test_training_target_information():
+    """
+    Verify that target information is preserved by
+    chronological evaluation.
+    """
+
+    training_result = train_model()
+
     evaluation_result = evaluate_model(
-        training_result=None,
+        training_result=training_result,
         test_ratio=0.2,
         min_test_rows=2,
     )
 
-except ValueError as error:
     print()
-    print(
-        "Evaluation could not be completed."
-    )
-    print(
-        f"Reason: {error}"
-    )
-    print()
-    print(
-        "This is expected when the historical "
-        "dataset is too small."
-    )
-    print()
-    print("========== TEST RESULT ==========")
-    print(
-        "PASS: Training completed, but "
-        "chronological evaluation requires "
-        "more historical records."
-    )
-    raise SystemExit(0)
+    print("========== TRAINING TARGET ==========")
 
-# ==========================================================
-# EVALUATION RESULTS
-# ==========================================================
-
-print()
-
-print(
-    f"Training rows: "
-    f"{evaluation_result['training_rows']}"
-)
-
-print(
-    f"Testing rows: "
-    f"{evaluation_result['testing_rows']}"
-)
-
-metrics = evaluation_result['metrics']
-
-print()
-
-print(
-    f"MAE: "
-    f"{metrics['mae']:.4f}"
-)
-
-print(
-    f"RMSE: "
-    f"{metrics['rmse']:.4f}"
-)
-
-# R² يمكن أن تكون None بشكل شرعي عندما لا تحتوي
-# بيانات التقييم على تباين كافٍ في القيمة المستهدفة.
-
-r_squared = metrics.get('r_squared')
-
-if r_squared is None:
-    print(
-        "R²: unavailable "
-        "(insufficient target variation)"
-    )
-else:
-    print(
-        f"R²: "
-        f"{r_squared:.4f}"
+    training_target_values = evaluation_result.get(
+        "training_target_values"
     )
 
-# ==========================================================
-# EVALUATION STATUS
-# ==========================================================
-
-evaluation_status = evaluation_result.get('evaluation_status')
-evaluation_valid = evaluation_result.get('evaluation_valid')
-
-if evaluation_status is not None:
-    print()
-    print(
-        f"Evaluation status: "
-        f"{evaluation_status}"
-    )
-    print(
-        f"Evaluation valid: "
-        f"{evaluation_valid}"
+    training_target_unique_values = evaluation_result.get(
+        "training_target_unique_values"
     )
 
-# ==========================================================
-# TRAINING TARGET INFORMATION
-# ==========================================================
+    training_target_has_variation = evaluation_result.get(
+        "training_target_has_variation"
+    )
 
-training_target_values = evaluation_result.get('training_target_values')
-training_target_unique_values = evaluation_result.get('training_target_unique_values')
-training_target_has_variation = evaluation_result.get('training_target_has_variation')
+    if training_target_values is not None:
 
-if training_target_values is not None:
-    print()
-    print(
-        "========== TRAINING TARGET =========="
-    )
-    print(
-        f"Training target values: "
-        f"{training_target_values}"
-    )
-    print(
-        f"Unique target values: "
-        f"{training_target_unique_values}"
-    )
-    print(
-        f"Target variation: "
-        f"{training_target_has_variation}"
-    )
+        print(
+            f"Training target values: "
+            f"{training_target_values}"
+        )
+
+        print(
+            f"Unique target values: "
+            f"{training_target_unique_values}"
+        )
+
+        print(
+            f"Target variation: "
+            f"{training_target_has_variation}"
+        )
+
+        assert training_target_unique_values is not None
+        assert isinstance(training_target_unique_values, list)
+        assert len(training_target_unique_values) >= 1
+
+        assert training_target_has_variation is False
+        assert training_target_unique_values == [0.0]
+
 
 # ==========================================================
 # TESTING PERIOD
 # ==========================================================
 
-print()
-print("========== TESTING PERIOD ==========")
+def test_testing_period_and_predictions():
+    """
+    Verify chronological testing dates and the
+    actual-vs-predicted output.
+    """
 
-for testing_date in evaluation_result['testing_dates']:
-    print(testing_date)
+    training_result = train_model()
 
-# ==========================================================
-# ACTUAL VS PREDICTED
-# ==========================================================
-
-print()
-print("========== ACTUAL vs PREDICTED ==========")
-
-for date_value, actual, predicted in zip(
-    evaluation_result['testing_dates'],
-    evaluation_result['actual_values'],
-    evaluation_result['predicted_values'],
-):
-    print(
-        f"{date_value} | "
-        f"Actual: {actual:.2f} | "
-        f"Predicted: {predicted:.2f}"
+    evaluation_result = evaluate_model(
+        training_result=training_result,
+        test_ratio=0.2,
+        min_test_rows=2,
     )
 
+    testing_dates = evaluation_result["testing_dates"]
+    actual_values = evaluation_result["actual_values"]
+    predicted_values = evaluation_result["predicted_values"]
+
+    assert len(testing_dates) > 0
+
+    assert len(testing_dates) == len(actual_values)
+    assert len(testing_dates) == len(predicted_values)
+
+    print()
+    print("========== TESTING PERIOD ==========")
+
+    for testing_date in testing_dates:
+        print(testing_date)
+
+    print()
+    print("========== ACTUAL vs PREDICTED ==========")
+
+    for date_value, actual, predicted in zip(
+        testing_dates,
+        actual_values,
+        predicted_values,
+    ):
+        print(
+            f"{date_value} | "
+            f"Actual: {actual:.2f} | "
+            f"Predicted: {predicted:.2f}"
+        )
+
+
 # ==========================================================
-# FINAL RESULT
+# FINAL INTEGRATION TEST
 # ==========================================================
 
-print()
-print("========== TEST RESULT ==========")
+def test_full_training_evaluation_integration():
+    """
+    Full integration test:
 
-print(
-    "PASS: Training pipeline executed successfully."
-)
+    Training
+        ↓
+    Training Result
+        ↓
+    Chronological Evaluation
+        ↓
+    Metrics
+        ↓
+    Predictions
+    """
 
-if evaluation_valid is False:
-    print(
-        "NOTE: Evaluation metrics are partially "
-        "unavailable because the current historical "
-        "dataset does not contain sufficient target "
-        "variation."
+    print()
+    print("========== FULL TRAINING + EVALUATION INTEGRATION ==========")
+
+    training_result = train_model()
+
+    assert training_result is not None
+    assert training_result["training_rows"] > 0
+    assert len(training_result["feature_names"]) > 0
+
+    evaluation_result = evaluate_model(
+        training_result=training_result,
+        test_ratio=0.2,
+        min_test_rows=2,
     )
 
-print()
-print(
-    "Important: A target value of 0.0 is a valid "
-    "real observation and is never treated as missing."
-)
+    assert evaluation_result is not None
+
+    assert evaluation_result["training_rows"] > 0
+    assert evaluation_result["testing_rows"] >= 2
+
+    assert len(
+        evaluation_result["testing_dates"]
+    ) == evaluation_result["testing_rows"]
+
+    assert len(
+        evaluation_result["actual_values"]
+    ) == evaluation_result["testing_rows"]
+
+    assert len(
+        evaluation_result["predicted_values"]
+    ) == evaluation_result["testing_rows"]
+
+    metrics = evaluation_result["metrics"]
+
+    assert metrics["mae"] >= 0
+    assert metrics["rmse"] >= 0
+
+    print()
+    print("Training: PASS")
+    print("Chronological evaluation: PASS")
+    print("Metrics: PASS")
+    print("Predictions: PASS")
+
+    print()
+    print("========== TEST RESULT ==========")
+    print(
+        "PASS: Full training and evaluation "
+        "integration executed successfully."
+    )

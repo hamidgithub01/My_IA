@@ -195,7 +195,14 @@ def build_feature_vector(
 
     The order is determined exclusively by feature_names.
 
-    This prevents accidental feature-order changes during
+    The feature schema is strict:
+
+        - Missing features are rejected.
+        - Unknown features are rejected.
+        - Feature order follows feature_names exactly.
+        - Feature values must be numeric and finite.
+
+    This prevents accidental feature-schema changes during
     production inference.
     """
 
@@ -212,6 +219,10 @@ def build_feature_vector(
             'feature_data must be a dictionary.'
         )
 
+    # ------------------------------------------------------
+    # Missing features
+    # ------------------------------------------------------
+
     missing_features = [
         feature_name
         for feature_name in feature_names
@@ -225,11 +236,29 @@ def build_feature_vector(
             f'{missing_features}'
         )
 
-    extra_features = [
+    # ------------------------------------------------------
+    # Unknown features
+    #
+    # Production inference must use exactly the same
+    # feature schema that was used during training.
+    # ------------------------------------------------------
+
+    unknown_features = [
         feature_name
         for feature_name in feature_data
         if feature_name not in feature_names
     ]
+
+    if unknown_features:
+
+        raise ValueError(
+            'Unknown features were provided: '
+            f'{unknown_features}'
+        )
+
+    # ------------------------------------------------------
+    # Exact feature order
+    # ------------------------------------------------------
 
     values = [
         feature_data[
@@ -238,12 +267,18 @@ def build_feature_vector(
         for feature_name in feature_names
     ]
 
+    # ------------------------------------------------------
+    # Numeric / finite validation
+    # ------------------------------------------------------
+
     _validate_feature_vector(
         values,
         len(feature_names),
     )
 
     return values
+
+     
 
 
 # ==========================================================
@@ -557,236 +592,3 @@ if __name__ == '__main__':
             ]
 
     model = DemoModel()
-
-    feature_names = [
-        'feature_a',
-        'feature_b',
-    ]
-
-    feature_data = {
-
-        'feature_a':
-            10,
-
-        'feature_b':
-            20,
-    }
-
-    result = generate_prediction(
-        model,
-        feature_names,
-        feature_data,
-        'Target_Expense_Total_1D',
-        'regression',
-        'v1.0.0',
-    )
-
-    print()
-    print(
-        '========== PRODUCTION PREDICTION TEST =========='
-    )
-
-    print(
-        result
-    )
-
-    print()
-    print(
-        '========== PRODUCTION PREDICTION TEST PASSED =========='
-    )
-
-
-# ==========================================================
-# PRODUCTION MONITORING INTEGRATION
-# ==========================================================
-
-def attach_monitoring_metadata(
-    prediction_result,
-):
-    """
-    Attach monitoring metadata to a production prediction.
-
-    Important:
-
-        This function does NOT calculate reliability.
-
-        Reliability requires observed outcomes, which may
-        only become available after the prediction is made.
-
-        Therefore this function creates the monitoring record
-        needed for later reliability evaluation.
-    """
-
-    if prediction_result is None:
-
-        raise ValueError(
-            'prediction_result is required.'
-        )
-
-    if not isinstance(
-        prediction_result,
-        dict,
-    ):
-
-        raise ValueError(
-            'prediction_result must be a dictionary.'
-        )
-
-    required_keys = [
-        'status',
-        'target_name',
-        'target_task',
-        'prediction',
-    ]
-
-    missing_keys = [
-        key
-        for key in required_keys
-        if key not in prediction_result
-    ]
-
-    if missing_keys:
-
-        raise ValueError(
-            'prediction_result is missing required fields: '
-            f'{missing_keys}'
-        )
-
-    result = dict(
-        prediction_result
-    )
-
-    result['monitoring'] = {
-
-        'monitoring_available':
-            True,
-
-        'actual_value_available':
-            False,
-
-        'reliability_available':
-            False,
-
-        'reliability_level':
-            'unknown',
-
-        'reliability_status':
-            'pending_actual_value',
-    }
-
-    return result
-
-
-# ==========================================================
-# PRODUCTION PREDICTION + MONITORING
-# ==========================================================
-
-def generate_monitored_prediction(
-    model,
-    feature_names,
-    feature_data,
-    target_name,
-    target_task,
-    model_version=None,
-):
-    """
-    Generate a production prediction together with the
-    monitoring metadata required for future reliability
-    evaluation.
-    """
-
-    prediction_result = generate_prediction(
-        model=model,
-        feature_names=feature_names,
-        feature_data=feature_data,
-        target_name=target_name,
-        target_task=target_task,
-        model_version=model_version,
-    )
-
-    return attach_monitoring_metadata(
-        prediction_result
-    )
-
-
-# ==========================================================
-# UPDATE MONITORING WITH ACTUAL VALUE
-# ==========================================================
-
-def update_prediction_with_actual(
-    prediction_result,
-    actual_value,
-):
-    """
-    Attach the observed actual value to a previous
-    production prediction.
-
-    This function does not calculate model reliability.
-
-    It only creates the completed observation needed by
-    the monitoring layer.
-    """
-
-    if prediction_result is None:
-
-        raise ValueError(
-            'prediction_result is required.'
-        )
-
-    if not isinstance(
-        prediction_result,
-        dict,
-    ):
-
-        raise ValueError(
-            'prediction_result must be a dictionary.'
-        )
-
-    if 'prediction' not in prediction_result:
-
-        raise ValueError(
-            'prediction_result must contain prediction.'
-        )
-
-    if actual_value is None:
-
-        raise ValueError(
-            'actual_value is required.'
-        )
-
-    result = dict(
-        prediction_result
-    )
-
-    monitoring = dict(
-        prediction_result.get(
-            'monitoring',
-            {},
-        )
-    )
-
-    monitoring.update(
-        {
-            'monitoring_available':
-                True,
-
-            'actual_value_available':
-                True,
-
-            'reliability_available':
-                False,
-
-            'reliability_level':
-                'pending_evaluation',
-
-            'reliability_status':
-                'ready_for_evaluation',
-
-            'actual_value':
-                actual_value,
-        }
-    )
-
-    result['monitoring'] = monitoring
-
-    return result

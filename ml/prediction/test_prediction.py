@@ -1,15 +1,22 @@
+
 import math
 from unittest.mock import patch
 
 import numpy as np
-from sklearn.linear_model import LinearRegression
+
+from ml.models.registry import REGISTRY_VALID
 
 from ml.prediction.predict import (
-    build_prediction_vector,
+    PREDICTION_INVALID,
+    PREDICTION_MODEL_NOT_FOUND,
+    PREDICTION_VALID,
+    _validate_features,
+    _validate_numeric_feature,
+    validate_feature_schema,
+    build_feature_vector,
+    load_latest_registered_model,
+    predict_from_registered_model,
     predict,
-    predict_expense,
-    validate_feature_value,
-    validate_prediction_features,
 )
 
 
@@ -17,27 +24,9 @@ from ml.prediction.predict import (
 # CONSTANTS
 # ==========================================================
 
-DAILY_HORIZONS = {
-    '1D': 1,
-    '2D': 2,
-    '3D': 3,
-    '4D': 4,
-    '5D': 5,
-    '6D': 6,
-    '7D': 7,
-}
+TARGET_NAME = 'Target_Expense_Total_1D'
 
-PERIOD_HORIZONS = {
-    '8_15D': (8, 15),
-    '16_30D': (16, 30),
-    '30D': (1, 30),
-}
-
-ALL_HORIZONS = [
-    *DAILY_HORIZONS.keys(),
-    *PERIOD_HORIZONS.keys(),
-]
-
+MODEL_VERSION = 'v1'
 
 FEATURE_NAMES = [
     'expense_lag_1',
@@ -46,96 +35,46 @@ FEATURE_NAMES = [
 ]
 
 
-MODEL_HISTORY_ID = 101
-
-
 # ==========================================================
-# SYNTHETIC MODEL FACTORY
+# SYNTHETIC MODEL
 # ==========================================================
 
-def create_synthetic_model(
-    offset=10.0,
-):
-    """
-    Create a deterministic synthetic regression model.
+class SyntheticRegressionModel:
 
-    Formula:
-
-        y =
-            0.5 * expense_lag_1
-            + 0.3 * expense_lag_7
-            + 0.2 * expense_rolling_mean_7
-            + offset
-
-    This model is completely synthetic.
-
-    No database is used.
-    """
-
-    X = np.array([
-        [100.0, 90.0, 95.0],
-        [120.0, 100.0, 110.0],
-        [140.0, 120.0, 130.0],
-        [160.0, 140.0, 150.0],
-        [180.0, 160.0, 170.0],
-    ])
-
-    y = np.array([
-        87.0 + offset - 10.0,
-        104.0 + offset - 10.0,
-        121.0 + offset - 10.0,
-        138.0 + offset - 10.0,
-        155.0 + offset - 10.0,
-    ])
-
-    model = LinearRegression()
-
-    model.fit(
+    def predict(
+        self,
         X,
-        y,
-    )
+    ):
+        """
+        Deterministic synthetic regression model.
 
-    return model
+        Formula:
 
+            prediction =
+                0.5 * feature_1
+                + 0.3 * feature_2
+                + 0.2 * feature_3
+                + 10
+        """
 
-# ==========================================================
-# SYNTHETIC MODEL INFO
-# ==========================================================
+        row = X[0]
 
-def create_synthetic_model_info(
-    target_name='Target_Expense_Total_1D',
-    model_history_id=MODEL_HISTORY_ID,
-    offset=10.0,
-):
-    """
-    Build the same structure expected by predict().
-    """
-
-    return {
-        'model':
-            create_synthetic_model(
-                offset=offset
-            ),
-
-        'feature_names':
-            FEATURE_NAMES.copy(),
-
-        'training_rows':
-            5,
-
-        'target_name':
-            target_name,
-
-        'model_history_id':
-            model_history_id,
-    }
+        return np.array([
+            (
+                0.5 * row[0]
+                + 0.3 * row[1]
+                + 0.2 * row[2]
+                + 10.0
+            )
+        ])
 
 
 # ==========================================================
-# VALID PREDICTION DATA
+# VALID FEATURES
 # ==========================================================
 
-def create_valid_prediction_data():
+def create_valid_features():
+
     return {
         'expense_lag_1':
             100.0,
@@ -149,272 +88,147 @@ def create_valid_prediction_data():
 
 
 # ==========================================================
-# FEATURE VALIDATION
+# VALID MODEL METADATA
 # ==========================================================
 
-def test_validate_prediction_features():
+def create_valid_metadata():
+
+    return {
+        'feature_names':
+            FEATURE_NAMES.copy(),
+
+        'target_name':
+            TARGET_NAME,
+
+        'target_task':
+            'forecast',
+
+        'target_type':
+            'continuous',
+
+        'model_type':
+            'regression',
+
+        'algorithm':
+            'SyntheticRegressionModel',
+
+        'trained_at':
+            '2026-08-17T00:00:00',
+    }
+
+
+# ==========================================================
+# VALID REGISTERED MODEL
+# ==========================================================
+
+def create_valid_model_info():
+
+    metadata = create_valid_metadata()
+
+    return {
+        'status':
+            PREDICTION_VALID,
+
+        'target_name':
+            TARGET_NAME,
+
+        'version':
+            MODEL_VERSION,
+
+        'model':
+            SyntheticRegressionModel(),
+
+        'metadata':
+            metadata,
+
+        'model_path':
+            'models/test/model.pkl',
+
+        'metadata_path':
+            'models/test/metadata.json',
+    }
+
+
+# ==========================================================
+# NUMERIC FEATURE VALIDATION
+# ==========================================================
+
+def test_numeric_feature_integer():
 
     print(
-        '========== FEATURE VALIDATION TEST =========='
+        '========== NUMERIC INTEGER TEST =========='
     )
 
-    data = create_valid_prediction_data()
-
-    result = validate_prediction_features(
-        data,
-        FEATURE_NAMES,
+    result = _validate_numeric_feature(
+        100,
+        'expense_lag_1',
     )
 
-    if result is not True:
+    if result != 100.0:
+
         raise AssertionError(
-            'Valid prediction features were rejected.'
+            'Integer feature was not converted to float.'
+        )
+
+    if not isinstance(
+        result,
+        float,
+    ):
+
+        raise AssertionError(
+            'Integer feature did not become float.'
         )
 
     print(
-        'Feature validation: PASSED'
+        'Numeric integer validation: PASSED'
     )
 
 
-# ==========================================================
-# FEATURE NAMES TYPE TEST
-# ==========================================================
-
-def test_invalid_feature_names_type():
+def test_numeric_feature_float():
 
     print(
-        '========== INVALID FEATURE NAMES TYPE TEST =========='
+        '========== NUMERIC FLOAT TEST =========='
     )
 
-    data = create_valid_prediction_data()
-
-    try:
-
-        validate_prediction_features(
-            data,
-            tuple(FEATURE_NAMES),
-        )
-
-    except TypeError:
-
-        print(
-            'Invalid feature names type handling: PASSED'
-        )
-
-        return
-
-    raise AssertionError(
-        'Non-list feature names were accepted.'
-    )
-
-
-# ==========================================================
-# MISSING FEATURE TEST
-# ==========================================================
-
-def test_missing_feature():
-
-    print(
-        '========== MISSING FEATURE TEST =========='
-    )
-
-    data = create_valid_prediction_data()
-
-    del data[
-        'expense_lag_7'
-    ]
-
-    try:
-
-        validate_prediction_features(
-            data,
-            FEATURE_NAMES,
-        )
-
-    except ValueError as exc:
-
-        if 'expense_lag_7' not in str(exc):
-
-            raise AssertionError(
-                'Missing feature error does not '
-                'identify the missing feature.'
-            )
-
-        print(
-            'Missing feature handling: PASSED'
-        )
-
-        return
-
-    raise AssertionError(
-        'Missing feature was not rejected.'
-    )
-
-
-# ==========================================================
-# INVALID DATA TYPE TEST
-# ==========================================================
-
-def test_invalid_prediction_data_type():
-
-    print(
-        '========== INVALID PREDICTION DATA TEST =========='
-    )
-
-    try:
-
-        validate_prediction_features(
-            [],
-            FEATURE_NAMES,
-        )
-
-    except TypeError:
-
-        print(
-            'Invalid prediction data handling: PASSED'
-        )
-
-        return
-
-    raise AssertionError(
-        'Invalid prediction data type was accepted.'
-    )
-
-
-# ==========================================================
-# EMPTY FEATURE LIST TEST
-# ==========================================================
-
-def test_empty_feature_names():
-
-    print(
-        '========== EMPTY FEATURE NAMES TEST =========='
-    )
-
-    try:
-
-        validate_prediction_features(
-            {},
-            [],
-        )
-
-    except ValueError:
-
-        print(
-            'Empty feature list handling: PASSED'
-        )
-
-        return
-
-    raise AssertionError(
-        'Empty feature list was accepted.'
-    )
-
-
-# ==========================================================
-# FORBIDDEN DATE FEATURE TEST
-# ==========================================================
-
-def test_forbidden_date_feature():
-
-    print(
-        '========== FORBIDDEN DATE FEATURE TEST =========='
-    )
-
-    feature_names = [
+    result = _validate_numeric_feature(
+        125.5,
         'expense_lag_1',
-        'Date',
-    ]
-
-    data = {
-        'expense_lag_1':
-            100.0,
-
-        'Date':
-            '2026-08-17',
-    }
-
-    try:
-
-        validate_prediction_features(
-            data,
-            feature_names,
-        )
-
-    except ValueError as exc:
-
-        if 'Date' not in str(exc):
-
-            raise AssertionError(
-                'Forbidden Date feature was not '
-                'identified correctly.'
-            )
-
-        print(
-            'Forbidden Date feature handling: PASSED'
-        )
-
-        return
-
-    raise AssertionError(
-        'Date was incorrectly accepted as a model feature.'
     )
 
+    if result != 125.5:
 
-# ==========================================================
-# FORBIDDEN TARGET FEATURE TEST
-# ==========================================================
-
-def test_forbidden_target_feature():
+        raise AssertionError(
+            'Float feature was modified.'
+        )
 
     print(
-        '========== FORBIDDEN TARGET FEATURE TEST =========='
+        'Numeric float validation: PASSED'
     )
 
-    feature_names = [
+
+def test_numeric_feature_string():
+
+    print(
+        '========== NUMERIC STRING TEST =========='
+    )
+
+    result = _validate_numeric_feature(
+        '125.5',
         'expense_lag_1',
-        'Target_Expense_Total_1D',
-    ]
+    )
 
-    data = {
-        'expense_lag_1':
-            100.0,
+    if result != 125.5:
 
-        'Target_Expense_Total_1D':
-            120.0,
-    }
-
-    try:
-
-        validate_prediction_features(
-            data,
-            feature_names,
+        raise AssertionError(
+            'Numeric string was not converted correctly.'
         )
 
-    except ValueError as exc:
-
-        if 'Target_Expense_Total_1D' not in str(exc):
-
-            raise AssertionError(
-                'Forbidden target feature was not '
-                'identified correctly.'
-            )
-
-        print(
-            'Forbidden target feature handling: PASSED'
-        )
-
-        return
-
-    raise AssertionError(
-        'Target feature was incorrectly accepted.'
+    print(
+        'Numeric string validation: PASSED'
     )
 
 
-# ==========================================================
-# BOOLEAN FEATURE TEST
-# ==========================================================
-
-def test_boolean_feature():
+def test_numeric_feature_boolean():
 
     print(
         '========== BOOLEAN FEATURE TEST =========='
@@ -422,9 +236,9 @@ def test_boolean_feature():
 
     try:
 
-        validate_feature_value(
-            'expense_lag_1',
+        _validate_numeric_feature(
             True,
+            'expense_lag_1',
         )
 
     except ValueError:
@@ -436,81 +250,63 @@ def test_boolean_feature():
         return
 
     raise AssertionError(
-        'Boolean feature was incorrectly accepted.'
+        'Boolean feature was accepted.'
     )
 
 
-# ==========================================================
-# NON-NUMERIC FEATURE TEST
-# ==========================================================
-
-def test_non_numeric_feature():
+def test_numeric_feature_none():
 
     print(
-        '========== NON-NUMERIC FEATURE TEST =========='
+        '========== NONE FEATURE TEST =========='
     )
 
     try:
 
-        validate_feature_value(
+        _validate_numeric_feature(
+            None,
             'expense_lag_1',
-            'not-a-number',
         )
 
     except ValueError:
 
         print(
-            'Non-numeric feature handling: PASSED'
+            'None feature handling: PASSED'
         )
 
         return
 
     raise AssertionError(
-        'Non-numeric feature was incorrectly accepted.'
+        'None feature was accepted.'
     )
 
 
-# ==========================================================
-# NUMERIC STRING TEST
-# ==========================================================
-
-def test_numeric_string():
+def test_numeric_feature_invalid_string():
 
     print(
-        '========== NUMERIC STRING TEST =========='
+        '========== INVALID STRING FEATURE TEST =========='
     )
 
-    value = validate_feature_value(
-        'expense_lag_1',
-        '125.5',
-    )
+    try:
 
-    if not isinstance(
-        value,
-        float,
-    ):
-
-        raise AssertionError(
-            'Numeric string was not converted to float.'
+        _validate_numeric_feature(
+            'not-a-number',
+            'expense_lag_1',
         )
 
-    if value != 125.5:
+    except ValueError:
 
-        raise AssertionError(
-            'Numeric string conversion produced '
-            'an incorrect value.'
+        print(
+            'Invalid string feature handling: PASSED'
         )
 
-    print(
-        'Numeric string conversion: PASSED'
+        return
+
+    raise AssertionError(
+        'Invalid string feature was accepted.'
     )
 
 
-# ==========================================================
-# NAN FEATURE TEST
-# ==========================================================
-
-def test_nan_feature():
+def test_numeric_feature_nan():
 
     print(
         '========== NAN FEATURE TEST =========='
@@ -518,9 +314,9 @@ def test_nan_feature():
 
     try:
 
-        validate_feature_value(
-            'expense_lag_1',
+        _validate_numeric_feature(
             float('nan'),
+            'expense_lag_1',
         )
 
     except ValueError:
@@ -532,15 +328,11 @@ def test_nan_feature():
         return
 
     raise AssertionError(
-        'NaN feature was incorrectly accepted.'
+        'NaN feature was accepted.'
     )
 
 
-# ==========================================================
-# INFINITE FEATURE TEST
-# ==========================================================
-
-def test_infinite_feature():
+def test_numeric_feature_infinite():
 
     print(
         '========== INFINITE FEATURE TEST =========='
@@ -548,9 +340,9 @@ def test_infinite_feature():
 
     try:
 
-        validate_feature_value(
-            'expense_lag_1',
+        _validate_numeric_feature(
             float('inf'),
+            'expense_lag_1',
         )
 
     except ValueError:
@@ -562,30 +354,25 @@ def test_infinite_feature():
         return
 
     raise AssertionError(
-        'Infinite feature was incorrectly accepted.'
+        'Infinite feature was accepted.'
     )
 
 
-# ==========================================================
-# NEGATIVE FEATURE TEST
-# ==========================================================
-
-def test_negative_feature():
+def test_numeric_feature_negative():
 
     print(
         '========== NEGATIVE FEATURE TEST =========='
     )
 
-    value = validate_feature_value(
-        'expense_lag_1',
+    result = _validate_numeric_feature(
         -100.0,
+        'expense_lag_1',
     )
 
-    if value != -100.0:
+    if result != -100.0:
 
         raise AssertionError(
-            'Valid negative numeric feature was rejected '
-            'or modified.'
+            'Negative numeric feature was modified.'
         )
 
     print(
@@ -594,16 +381,387 @@ def test_negative_feature():
 
 
 # ==========================================================
-# FEATURE ORDER TEST
+# FEATURES VALIDATION
 # ==========================================================
 
-def test_feature_order():
+def test_valid_features():
 
     print(
-        '========== FEATURE ORDER TEST =========='
+        '========== VALID FEATURES TEST =========='
     )
 
-    data = {
+    data = create_valid_features()
+
+    result = _validate_features(
+        data
+    )
+
+    if result != data:
+
+        raise AssertionError(
+            'Valid features were modified.'
+        )
+
+    print(
+        'Valid features: PASSED'
+    )
+
+
+def test_features_must_be_dictionary():
+
+    print(
+        '========== FEATURES TYPE TEST =========='
+    )
+
+    invalid_values = [
+        None,
+        [],
+        (),
+        'invalid',
+        123,
+    ]
+
+    for value in invalid_values:
+
+        try:
+
+            _validate_features(
+                value
+            )
+
+        except ValueError:
+
+            continue
+
+        raise AssertionError(
+            f'Invalid features value was accepted: {value!r}'
+        )
+
+    print(
+        'Features type validation: PASSED'
+    )
+
+
+def test_empty_features():
+
+    print(
+        '========== EMPTY FEATURES TEST =========='
+    )
+
+    try:
+
+        _validate_features(
+            {}
+        )
+
+    except ValueError:
+
+        print(
+            'Empty features handling: PASSED'
+        )
+
+        return
+
+    raise AssertionError(
+        'Empty features were accepted.'
+    )
+
+
+# ==========================================================
+# FEATURE SCHEMA VALIDATION
+# ==========================================================
+
+def test_valid_feature_schema():
+
+    print(
+        '========== VALID FEATURE SCHEMA TEST =========='
+    )
+
+    features = create_valid_features()
+
+    result = validate_feature_schema(
+        features,
+        FEATURE_NAMES,
+    )
+
+    if result is not True:
+
+        raise AssertionError(
+            'Valid feature schema was rejected.'
+        )
+
+    print(
+        'Valid feature schema: PASSED'
+    )
+
+
+def test_missing_feature():
+
+    print(
+        '========== MISSING FEATURE TEST =========='
+    )
+
+    features = create_valid_features()
+
+    del features[
+        'expense_lag_7'
+    ]
+
+    try:
+
+        validate_feature_schema(
+            features,
+            FEATURE_NAMES,
+        )
+
+    except ValueError as exc:
+
+        if 'expense_lag_7' not in str(exc):
+
+            raise AssertionError(
+                'Missing feature was not identified '
+                'correctly.'
+            )
+
+        print(
+            'Missing feature handling: PASSED'
+        )
+
+        return
+
+    raise AssertionError(
+        'Missing feature was accepted.'
+    )
+
+
+def test_unexpected_feature():
+
+    print(
+        '========== UNEXPECTED FEATURE TEST =========='
+    )
+
+    features = create_valid_features()
+
+    features[
+        'unknown_feature'
+    ] = 999.0
+
+    try:
+
+        validate_feature_schema(
+            features,
+            FEATURE_NAMES,
+        )
+
+    except ValueError as exc:
+
+        if 'unknown_feature' not in str(exc):
+
+            raise AssertionError(
+                'Unexpected feature was not identified.'
+            )
+
+        print(
+            'Unexpected feature handling: PASSED'
+        )
+
+        return
+
+    raise AssertionError(
+        'Unexpected feature was accepted.'
+    )
+
+
+def test_feature_names_must_be_list():
+
+    print(
+        '========== FEATURE NAMES TYPE TEST =========='
+    )
+
+    features = create_valid_features()
+
+    invalid_feature_names = (
+        tuple(FEATURE_NAMES),
+    )
+
+    for feature_names in invalid_feature_names:
+
+        try:
+
+            validate_feature_schema(
+                features,
+                feature_names,
+            )
+
+        except ValueError:
+
+            print(
+                'Feature names type validation: PASSED'
+            )
+
+            return
+
+    raise AssertionError(
+        'Invalid feature_names type was accepted.'
+    )
+
+
+def test_empty_feature_names():
+
+    print(
+        '========== EMPTY FEATURE NAMES TEST =========='
+    )
+
+    features = create_valid_features()
+
+    try:
+
+        validate_feature_schema(
+            features,
+            [],
+        )
+
+    except ValueError:
+
+        print(
+            'Empty feature names handling: PASSED'
+        )
+
+        return
+
+    raise AssertionError(
+        'Empty feature names were accepted.'
+    )
+
+
+def test_invalid_feature_name_type():
+
+    print(
+        '========== INVALID FEATURE NAME TEST =========='
+    )
+
+    features = create_valid_features()
+
+    invalid_names = [
+        123,
+        None,
+        True,
+    ]
+
+    for invalid_name in invalid_names:
+
+        feature_names = [
+            invalid_name,
+            'expense_lag_7',
+            'expense_rolling_mean_7',
+        ]
+
+        try:
+
+            validate_feature_schema(
+                features,
+                feature_names,
+            )
+
+        except ValueError:
+
+            continue
+
+        raise AssertionError(
+            'Invalid feature name was accepted.'
+        )
+
+    print(
+        'Invalid feature name validation: PASSED'
+    )
+
+
+def test_duplicate_feature_names():
+
+    print(
+        '========== DUPLICATE FEATURE NAMES TEST =========='
+    )
+
+    features = create_valid_features()
+
+    feature_names = [
+        'expense_lag_1',
+        'expense_lag_7',
+        'expense_lag_1',
+    ]
+
+    try:
+
+        validate_feature_schema(
+            features,
+            feature_names,
+        )
+
+    except ValueError as exc:
+
+        if 'duplicate' not in str(exc).lower():
+
+            raise AssertionError(
+                'Duplicate feature names were rejected '
+                'without reporting the duplicate.'
+            )
+
+        print(
+            'Duplicate feature names handling: PASSED'
+        )
+
+        return
+
+    raise AssertionError(
+        'Duplicate feature names were accepted.'
+    )
+
+
+def test_empty_feature_name():
+
+    print(
+        '========== EMPTY FEATURE NAME TEST =========='
+    )
+
+    features = create_valid_features()
+
+    feature_names = [
+        '',
+        'expense_lag_7',
+        'expense_rolling_mean_7',
+    ]
+
+    try:
+
+        validate_feature_schema(
+            features,
+            feature_names,
+        )
+
+    except ValueError:
+
+        print(
+            'Empty feature name handling: PASSED'
+        )
+
+        return
+
+    raise AssertionError(
+        'Empty feature name was accepted.'
+    )
+
+
+# ==========================================================
+# FEATURE VECTOR
+# ==========================================================
+
+def test_feature_vector_order():
+
+    print(
+        '========== FEATURE VECTOR ORDER TEST =========='
+    )
+
+    features = {
         'expense_rolling_mean_7':
             95.0,
 
@@ -614,225 +772,337 @@ def test_feature_order():
             100.0,
     }
 
-    vector = build_prediction_vector(
-        data,
+    vector = build_feature_vector(
+        features,
         FEATURE_NAMES,
     )
 
     expected = [
-        100.0,
-        90.0,
-        95.0,
+        [
+            100.0,
+            90.0,
+            95.0,
+        ]
     ]
 
     if vector != expected:
 
         raise AssertionError(
-            'Prediction vector does not preserve '
-            'the trained feature order.'
+            'Feature vector order does not match '
+            'the registered model schema.'
         )
 
     print(
-        'Feature ordering: PASSED'
+        'Feature vector ordering: PASSED'
     )
 
 
-# ==========================================================
-# EXTRA FEATURES TEST
-# ==========================================================
-
-def test_extra_features():
+def test_feature_vector_numeric_conversion():
 
     print(
-        '========== EXTRA FEATURES TEST =========='
+        '========== FEATURE VECTOR NUMERIC TEST =========='
     )
 
-    data = create_valid_prediction_data()
+    features = {
+        'expense_lag_1':
+            '100',
 
-    data[
-        'Date'
-    ] = '2026-08-17'
+        'expense_lag_7':
+            '90.5',
 
-    data[
-        'some_unused_value'
-    ] = 999.0
+        'expense_rolling_mean_7':
+            95,
+    }
 
-    vector = build_prediction_vector(
-        data,
+    vector = build_feature_vector(
+        features,
         FEATURE_NAMES,
     )
 
-    if len(vector) != len(
-        FEATURE_NAMES
-    ):
+    expected = [
+        [
+            100.0,
+            90.5,
+            95.0,
+        ]
+    ]
+
+    if vector != expected:
 
         raise AssertionError(
-            'Extra input features changed '
-            'the prediction vector size.'
+            'Feature vector numeric conversion failed.'
         )
 
     print(
-        'Extra feature handling: PASSED'
+        'Feature vector numeric conversion: PASSED'
     )
 
 
 # ==========================================================
-# MODEL PREDICTION TEST
+# REGISTERED MODEL LOADING
 # ==========================================================
 
-def test_prediction():
+def test_load_latest_registered_model_valid():
 
     print(
-        '========== MODEL PREDICTION TEST =========='
+        '========== LOAD REGISTERED MODEL TEST =========='
     )
 
-    model_info = create_synthetic_model_info()
+    with patch(
+        'ml.prediction.predict.get_latest_model_version',
+        return_value=MODEL_VERSION,
+    ), patch(
+        'ml.prediction.predict.load_registered_model',
+        return_value={
+            'status':
+                REGISTRY_VALID,
 
-    data = create_valid_prediction_data()
+            'model':
+                SyntheticRegressionModel(),
+
+            'metadata':
+                create_valid_metadata(),
+
+            'model_path':
+                'models/test/model.pkl',
+
+            'metadata_path':
+                'models/test/metadata.json',
+        },
+    ):
+
+        result = load_latest_registered_model(
+            target_name=TARGET_NAME,
+        )
+
+    if result[
+        'status'
+    ] != PREDICTION_VALID:
+
+        raise AssertionError(
+            'Valid registered model was not accepted.'
+        )
+
+    if result[
+        'version'
+    ] != MODEL_VERSION:
+
+        raise AssertionError(
+            'Registered model version was not preserved.'
+        )
+
+    if result[
+        'model'
+    ] is None:
+
+        raise AssertionError(
+            'Registered model was not loaded.'
+        )
+
+    print(
+        'Registered model loading: PASSED'
+    )
+
+
+def test_load_latest_registered_model_not_found():
+
+    print(
+        '========== MODEL NOT FOUND TEST =========='
+    )
 
     with patch(
-        'ml.prediction.predict.load_latest_model',
+        'ml.prediction.predict.get_latest_model_version',
+        return_value=None,
+    ):
+
+        result = load_latest_registered_model(
+            target_name=TARGET_NAME,
+        )
+
+    if result[
+        'status'
+    ] != PREDICTION_MODEL_NOT_FOUND:
+
+        raise AssertionError(
+            'Missing registered model was not '
+            'reported correctly.'
+        )
+
+    if result[
+        'model'
+    ] is not None:
+
+        raise AssertionError(
+            'Missing model unexpectedly returned a model.'
+        )
+
+    print(
+        'Model not found handling: PASSED'
+    )
+
+
+# ==========================================================
+# REGISTERED MODEL PREDICTION
+# ==========================================================
+
+def test_prediction_success():
+
+    print(
+        '========== PREDICTION SUCCESS TEST =========='
+    )
+
+    model_info = create_valid_model_info()
+
+    features = create_valid_features()
+
+    with patch(
+        'ml.prediction.predict.load_latest_registered_model',
         return_value=model_info,
     ):
 
-        result = predict(
-            data
+        result = predict_from_registered_model(
+            features=features,
+            target_name=TARGET_NAME,
+        )
+
+    if result[
+        'status'
+    ] != PREDICTION_VALID:
+
+        raise AssertionError(
+            'Prediction did not return a valid result.'
+        )
+
+    expected_prediction = 106.0
+
+    if result[
+        'prediction'
+    ] != expected_prediction:
+
+        raise AssertionError(
+            'Prediction returned an unexpected value.'
         )
 
     if not isinstance(
-        result,
-        dict,
-    ):
-
-        raise AssertionError(
-            'Prediction did not return a dictionary.'
-        )
-
-    if 'prediction' not in result:
-
-        raise AssertionError(
-            'Prediction result contains no prediction.'
-        )
-
-    if not isinstance(
-        result['prediction'],
+        result[
+            'prediction'
+        ],
         float,
     ):
 
         raise AssertionError(
-            'Prediction is not a float.'
-        )
-
-    if not math.isfinite(
-        result['prediction']
-    ):
-
-        raise AssertionError(
-            'Prediction is not finite.'
+            'Prediction was not normalized to float.'
         )
 
     print(
-        'Model prediction: PASSED'
+        'Prediction success: PASSED'
     )
 
 
-# ==========================================================
-# TARGET NAME PRESERVATION TEST
-# ==========================================================
-
-def test_target_name_preservation():
+def test_public_predict_api_initial():
 
     print(
-        '========== TARGET NAME PRESERVATION TEST =========='
+        '========== PUBLIC PREDICT CALCULATION TEST =========='
     )
 
-    model_info = create_synthetic_model_info(
-        target_name='Target_Travel_Day_7D'
-    )
+    model_info = create_valid_model_info()
 
-    data = create_valid_prediction_data()
+    features = create_valid_features()
+
+    model = model_info[
+        'model'
+    ]
+
+    feature_names = model_info[
+        'metadata'
+    ][
+        'feature_names'
+    ]
+
+    vector = [
+        features[
+            feature_name
+        ]
+        for feature_name in feature_names
+    ]
+
+    expected_prediction = float(
+        model.predict(
+            [vector]
+        )[0]
+    )
 
     with patch(
-        'ml.prediction.predict.load_latest_model',
+        'ml.prediction.predict.load_latest_registered_model',
         return_value=model_info,
     ):
 
         result = predict(
-            data
+            features=features,
+            target_name=TARGET_NAME,
         )
 
     if result[
-        'target_name'
-    ] != 'Target_Travel_Day_7D':
+        'status'
+    ] != PREDICTION_VALID:
 
         raise AssertionError(
-            'Target name was not preserved.'
-        )
-
-    print(
-        'Target name preservation: PASSED'
-    )
-
-
-# ==========================================================
-# MODEL HISTORY ID TEST
-# ==========================================================
-
-def test_model_history_id():
-
-    print(
-        '========== MODEL HISTORY ID TEST =========='
-    )
-
-    model_info = create_synthetic_model_info(
-        model_history_id=987
-    )
-
-    data = create_valid_prediction_data()
-
-    with patch(
-        'ml.prediction.predict.load_latest_model',
-        return_value=model_info,
-    ):
-
-        result = predict(
-            data
+            'Public predict() API did not '
+            'return a valid result.'
         )
 
     if result[
-        'model_history_id'
-    ] != 987:
+        'prediction'
+    ] != expected_prediction:
 
         raise AssertionError(
-            'Model history ID was not preserved.'
+            'Public predict() returned a prediction '
+            'different from the registered model output.'
+        )
+
+    if not isinstance(
+        result[
+            'prediction'
+        ],
+        float,
+    ):
+
+        raise AssertionError(
+            'Public predict() prediction '
+            'was not normalized to float.'
         )
 
     print(
-        'Model history ID preservation: PASSED'
+        'Public predict() calculation: PASSED'
     )
 
 
-# ==========================================================
-# FEATURE COUNT TEST
-# ==========================================================
-
-def test_feature_count():
+def test_prediction_preserves_feature_schema():
 
     print(
-        '========== FEATURE COUNT TEST =========='
+        '========== PREDICTION FEATURE SCHEMA TEST =========='
     )
 
-    model_info = create_synthetic_model_info()
+    model_info = create_valid_model_info()
 
-    data = create_valid_prediction_data()
+    features = create_valid_features()
 
     with patch(
-        'ml.prediction.predict.load_latest_model',
+        'ml.prediction.predict.load_latest_registered_model',
         return_value=model_info,
     ):
 
-        result = predict(
-            data
+        result = predict_from_registered_model(
+            features=features,
+            target_name=TARGET_NAME,
+        )
+
+    if result[
+        'feature_names'
+    ] != FEATURE_NAMES:
+
+        raise AssertionError(
+            'Feature names were not preserved.'
         )
 
     if result[
@@ -844,749 +1114,429 @@ def test_feature_count():
         )
 
     print(
-        'Feature count preservation: PASSED'
+        'Prediction feature schema: PASSED'
     )
 
 
-# ==========================================================
-# PREDICTION PRESERVATION TEST
-# ==========================================================
-
-def test_prediction_preservation():
+def test_prediction_preserves_metadata():
 
     print(
-        '========== PREDICTION PRESERVATION TEST =========='
+        '========== PREDICTION METADATA TEST =========='
     )
 
-    model_info = create_synthetic_model_info()
+    model_info = create_valid_model_info()
 
-    data = create_valid_prediction_data()
-
-    model = model_info[
-        'model'
-    ]
-
-    vector = build_prediction_vector(
-        data,
-        FEATURE_NAMES,
-    )
-
-    expected_prediction = float(
-        model.predict([
-            vector
-        ])[0]
-    )
+    features = create_valid_features()
 
     with patch(
-        'ml.prediction.predict.load_latest_model',
+        'ml.prediction.predict.load_latest_registered_model',
         return_value=model_info,
     ):
 
-        result = predict(
-            data
-        )
-
-    actual_prediction = result[
-        'prediction'
-    ]
-
-    if abs(
-        expected_prediction
-        - actual_prediction
-    ) > 1e-10:
-
-        raise AssertionError(
-            'Prediction does not match '
-            'the model output.'
-        )
-
-    print(
-        'Prediction preservation: PASSED'
-    )
-
-    print(
-        f'Expected prediction: '
-        f'{expected_prediction}'
-    )
-
-    print(
-        f'Actual prediction: '
-        f'{actual_prediction}'
-    )
-
-
-# ==========================================================
-# NON-FINITE MODEL OUTPUT TEST
-# ==========================================================
-
-class NonFiniteModel:
-
-    def predict(
-        self,
-        X,
-    ):
-        return np.array([
-            float('nan')
-        ])
-
-
-def test_non_finite_prediction():
-
-    print(
-        '========== NON-FINITE PREDICTION TEST =========='
-    )
-
-    model_info = create_synthetic_model_info()
-
-    model_info[
-        'model'
-    ] = NonFiniteModel()
-
-    data = create_valid_prediction_data()
-
-    with patch(
-        'ml.prediction.predict.load_latest_model',
-        return_value=model_info,
-    ):
-
-        try:
-
-            predict(
-                data
-            )
-
-        except ValueError as exc:
-
-            if 'non-finite prediction' not in str(exc):
-
-                raise AssertionError(
-                    'Non-finite prediction error '
-                    'message is incorrect.'
-                )
-
-            print(
-                'Non-finite prediction handling: PASSED'
-            )
-
-            return
-
-    raise AssertionError(
-        'Non-finite model output was accepted.'
-    )
-
-
-# ==========================================================
-# NEGATIVE PREDICTION TEST
-# ==========================================================
-
-class NegativeModel:
-
-    def predict(
-        self,
-        X,
-    ):
-        return np.array([
-            -50.0
-        ])
-
-
-def test_negative_prediction_is_preserved():
-
-    print(
-        '========== NEGATIVE PREDICTION TEST =========='
-    )
-
-    model_info = create_synthetic_model_info(
-        target_name='Target_Balance_1D'
-    )
-
-    model_info[
-        'model'
-    ] = NegativeModel()
-
-    data = create_valid_prediction_data()
-
-    with patch(
-        'ml.prediction.predict.load_latest_model',
-        return_value=model_info,
-    ):
-
-        result = predict(
-            data
+        result = predict_from_registered_model(
+            features=features,
+            target_name=TARGET_NAME,
         )
 
     if result[
-        'prediction'
-    ] != -50.0:
-
-        raise AssertionError(
-            'Negative prediction was incorrectly '
-            'clamped or modified.'
-        )
-
-    print(
-        'Negative prediction preservation: PASSED'
-    )
-
-
-# ==========================================================
-# ALL HORIZONS TEST
-# ==========================================================
-
-def test_all_horizons():
-
-    print(
-        '========== ALL HORIZONS TEST =========='
-    )
-
-    data = create_valid_prediction_data()
-
-    predictions = {}
-
-    for index, horizon in enumerate(
-        ALL_HORIZONS,
-        start=1,
-    ):
-
-        target_name = (
-            f'Target_Expense_Total_{horizon}'
-        )
-
-        model_info = create_synthetic_model_info(
-            target_name=target_name,
-            model_history_id=100 + index,
-            offset=float(index),
-        )
-
-        with patch(
-            'ml.prediction.predict.load_latest_model',
-            return_value=model_info,
-        ):
-
-            result = predict(
-                data
-            )
-
-        if result[
-            'target_name'
-        ] != target_name:
-
-            raise AssertionError(
-                f'{horizon}: target name mismatch.'
-            )
-
-        if result[
-            'model_history_id'
-        ] != 100 + index:
-
-            raise AssertionError(
-                f'{horizon}: model history ID mismatch.'
-            )
-
-        if not math.isfinite(
-            result['prediction']
-        ):
-
-            raise AssertionError(
-                f'{horizon}: prediction is not finite.'
-            )
-
-        predictions[
-            horizon
-        ] = result[
-            'prediction'
-        ]
-
-        print(
-            f'{horizon}: PASSED'
-        )
-
-    if set(
-        predictions.keys()
-    ) != set(
-        ALL_HORIZONS
-    ):
-
-        raise AssertionError(
-            'Not all horizons produced predictions.'
-        )
-
-    print(
-        'All horizon predictions: PASSED'
-    )
-
-
-# ==========================================================
-# HORIZON SEPARATION TEST
-# ==========================================================
-
-def test_horizon_separation():
-
-    print(
-        '========== HORIZON SEPARATION TEST =========='
-    )
-
-    data = create_valid_prediction_data()
-
-    results = {}
-
-    for index, horizon in enumerate(
-        ALL_HORIZONS,
-        start=1,
-    ):
-
-        target_name = (
-            f'Target_Expense_Total_{horizon}'
-        )
-
-        model_info = create_synthetic_model_info(
-            target_name=target_name,
-            model_history_id=200 + index,
-            offset=float(index),
-        )
-
-        with patch(
-            'ml.prediction.predict.load_latest_model',
-            return_value=model_info,
-        ):
-
-            result = predict(
-                data
-            )
-
-        results[
-            horizon
-        ] = result[
-            'prediction'
-        ]
-
-    unique_predictions = set(
-        results.values()
-    )
-
-    if len(unique_predictions) != len(
-        ALL_HORIZONS
-    ):
-
-        raise AssertionError(
-            'Different horizons were not kept '
-            'independent in the synthetic test.'
-        )
-
-    for horizon in ALL_HORIZONS:
-
-        print(
-            f'{horizon}: '
-            f'{results[horizon]}'
-        )
-
-    print(
-        'Horizon separation: PASSED'
-    )
-
-
-# ==========================================================
-# DAILY HORIZON STRUCTURE TEST
-# ==========================================================
-
-def test_daily_horizon_structure():
-
-    print(
-        '========== DAILY HORIZON STRUCTURE TEST =========='
-    )
-
-    expected = [
-        '1D',
-        '2D',
-        '3D',
-        '4D',
-        '5D',
-        '6D',
-        '7D',
-    ]
-
-    actual = list(
-        DAILY_HORIZONS.keys()
-    )
-
-    if actual != expected:
-
-        raise AssertionError(
-            'Daily horizon structure is incorrect.'
-        )
-
-    if list(
-        DAILY_HORIZONS.values()
-    ) != [
-        1,
-        2,
-        3,
-        4,
-        5,
-        6,
-        7,
+        'metadata'
+    ] != model_info[
+        'metadata'
     ]:
 
         raise AssertionError(
-            'Daily horizons do not map to '
-            'the correct future days.'
-        )
-
-    print(
-        'Daily horizon structure: PASSED'
-    )
-
-
-# ==========================================================
-# PERIOD HORIZON STRUCTURE TEST
-# ==========================================================
-
-def test_period_horizon_structure():
-
-    print(
-        '========== PERIOD HORIZON STRUCTURE TEST =========='
-    )
-
-    expected = {
-        '8_15D':
-            (8, 15),
-
-        '16_30D':
-            (16, 30),
-
-        '30D':
-            (1, 30),
-    }
-
-    if PERIOD_HORIZONS != expected:
-
-        raise AssertionError(
-            'Period horizon structure is incorrect.'
-        )
-
-    print(
-        '8_15D: T+8 -> T+15'
-    )
-
-    print(
-        '16_30D: T+16 -> T+30'
-    )
-
-    print(
-        '30D: T+1 -> T+30'
-    )
-
-    print(
-        'Period horizon structure: PASSED'
-    )
-
-
-# ==========================================================
-# HORIZON UNIQUENESS TEST
-# ==========================================================
-
-def test_horizon_uniqueness():
-
-    print(
-        '========== HORIZON UNIQUENESS TEST =========='
-    )
-
-    if len(
-        ALL_HORIZONS
-    ) != len(
-        set(ALL_HORIZONS)
-    ):
-
-        raise AssertionError(
-            'Duplicate horizons detected.'
-        )
-
-    if len(
-        ALL_HORIZONS
-    ) != 10:
-
-        raise AssertionError(
-            'Expected exactly 10 horizons.'
-        )
-
-    print(
-        'Horizon uniqueness: PASSED'
-    )
-
-
-# ==========================================================
-# TARGET HORIZON NAMING TEST
-# ==========================================================
-
-def test_target_horizon_naming():
-
-    print(
-        '========== TARGET HORIZON NAMING TEST =========='
-    )
-
-    for horizon in ALL_HORIZONS:
-
-        target_name = (
-            f'Target_Travel_Day_{horizon}'
-        )
-
-        if not target_name.endswith(
-            f'_{horizon}'
-        ):
-
-            raise AssertionError(
-                f'Invalid target naming for {horizon}.'
-            )
-
-    print(
-        'Target horizon naming: PASSED'
-    )
-
-
-# ==========================================================
-# BACKWARD COMPATIBILITY TEST
-# ==========================================================
-
-def test_predict_expense():
-
-    print(
-        '========== PREDICT EXPENSE WRAPPER TEST =========='
-    )
-
-    model_info = create_synthetic_model_info(
-        target_name='Target_Expense_Total_1D'
-    )
-
-    data = create_valid_prediction_data()
-
-    with patch(
-        'ml.prediction.predict.load_latest_model',
-        return_value=model_info,
-    ):
-
-        result = predict_expense(
-            data
+            'Prediction metadata was not preserved.'
         )
 
     if result[
-        'target_name'
-    ] != 'Target_Expense_Total_1D':
+        'model_path'
+    ] != model_info[
+        'model_path'
+    ]:
 
         raise AssertionError(
-            'predict_expense did not preserve '
-            'the model target.'
+            'Model path was not preserved.'
         )
 
-    if 'prediction' not in result:
+    if result[
+        'metadata_path'
+    ] != model_info[
+        'metadata_path'
+    ]:
 
         raise AssertionError(
-            'predict_expense returned no prediction.'
+            'Metadata path was not preserved.'
         )
 
     print(
-        'Backward-compatible prediction wrapper: PASSED'
+        'Prediction metadata preservation: PASSED'
     )
 
 
 # ==========================================================
-# NO MODEL TEST
+# PREDICTION MODEL NOT FOUND
 # ==========================================================
 
-def test_no_model():
+def test_prediction_model_not_found():
 
     print(
-        '========== NO MODEL TEST =========='
+        '========== PREDICTION MODEL NOT FOUND TEST =========='
     )
 
-    data = create_valid_prediction_data()
+    features = create_valid_features()
 
-    with patch(
-        'ml.prediction.predict.load_latest_model',
-        return_value=None,
-    ):
+    model_info = {
+        'status':
+            PREDICTION_MODEL_NOT_FOUND,
 
-        try:
+        'target_name':
+            TARGET_NAME,
 
-            predict(
-                data
-            )
+        'version':
+            None,
 
-        except ValueError as exc:
-
-            if 'No trained model' not in str(exc):
-
-                raise AssertionError(
-                    'No-model error message is incorrect.'
-                )
-
-            print(
-                'No-model handling: PASSED'
-            )
-
-            return
-
-    raise AssertionError(
-        'Prediction did not fail when no model existed.'
-    )
-
-
-# ==========================================================
-# INVALID MODEL TEST
-# ==========================================================
-
-def test_invalid_loaded_model():
-
-    print(
-        '========== INVALID LOADED MODEL TEST =========='
-    )
-
-    invalid_model_info = {
         'model':
             None,
 
-        'feature_names':
-            FEATURE_NAMES.copy(),
+        'metadata':
+            None,
 
-        'target_name':
-            'Target_Expense_Total_1D',
+        'model_path':
+            None,
 
-        'model_history_id':
-            MODEL_HISTORY_ID,
+        'metadata_path':
+            None,
     }
 
-    data = create_valid_prediction_data()
-
     with patch(
-        'ml.prediction.predict.load_latest_model',
-        return_value=invalid_model_info,
+        'ml.prediction.predict.load_latest_registered_model',
+        return_value=model_info,
     ):
 
-        try:
+        result = predict_from_registered_model(
+            features=features,
+            target_name=TARGET_NAME,
+        )
 
-            predict(
-                data
-            )
+    if result[
+        'status'
+    ] != PREDICTION_MODEL_NOT_FOUND:
 
-        except ValueError as exc:
+        raise AssertionError(
+            'Model-not-found status was not propagated.'
+        )
 
-            if 'Loaded model is missing' not in str(exc):
+    if result[
+        'prediction'
+    ] is not None:
 
-                raise AssertionError(
-                    'Invalid model error message '
-                    'is incorrect.'
-                )
-
-            print(
-                'Invalid loaded model handling: PASSED'
-            )
-
-            return
-
-    raise AssertionError(
-        'Invalid loaded model was accepted.'
-    )
-
-
-# ==========================================================
-# MISSING TARGET TEST
-# ==========================================================
-
-def test_missing_target_name():
+        raise AssertionError(
+            'Prediction should be None when model is missing.'
+        )
 
     print(
-        '========== MISSING TARGET NAME TEST =========='
+        'Prediction model-not-found handling: PASSED'
     )
 
-    model_info = create_synthetic_model_info()
+
+# ==========================================================
+# INVALID FEATURE TESTS
+# ==========================================================
+
+def test_prediction_missing_feature():
+
+    print(
+        '========== PREDICTION MISSING FEATURE TEST =========='
+    )
+
+    model_info = create_valid_model_info()
+
+    features = create_valid_features()
+
+    del features[
+        'expense_lag_7'
+    ]
+
+    with patch(
+        'ml.prediction.predict.load_latest_registered_model',
+        return_value=model_info,
+    ):
+
+        result = predict_from_registered_model(
+            features=features,
+            target_name=TARGET_NAME,
+        )
+
+    if result[
+        'status'
+    ] != PREDICTION_INVALID:
+
+        raise AssertionError(
+            'Missing feature did not produce invalid prediction.'
+        )
+
+    if 'expense_lag_7' not in result.get(
+        'error',
+        '',
+    ):
+
+        raise AssertionError(
+            'Missing feature name was not included in error.'
+        )
+
+    print(
+        'Prediction missing feature handling: PASSED'
+    )
+
+
+def test_prediction_unexpected_feature():
+
+    print(
+        '========== PREDICTION UNEXPECTED FEATURE TEST =========='
+    )
+
+    model_info = create_valid_model_info()
+
+    features = create_valid_features()
+
+    features[
+        'unknown_feature'
+    ] = 999.0
+
+    with patch(
+        'ml.prediction.predict.load_latest_registered_model',
+        return_value=model_info,
+    ):
+
+        result = predict_from_registered_model(
+            features=features,
+            target_name=TARGET_NAME,
+        )
+
+    if result[
+        'status'
+    ] != PREDICTION_INVALID:
+
+        raise AssertionError(
+            'Unexpected feature did not produce invalid prediction.'
+        )
+
+    if 'unknown_feature' not in result.get(
+        'error',
+        '',
+    ):
+
+        raise AssertionError(
+            'Unexpected feature name was not included in error.'
+        )
+
+    print(
+        'Prediction unexpected feature handling: PASSED'
+    )
+
+
+def test_prediction_invalid_numeric_feature():
+
+    print(
+        '========== PREDICTION INVALID NUMERIC FEATURE TEST =========='
+    )
+
+    model_info = create_valid_model_info()
+
+    features = create_valid_features()
+
+    features[
+        'expense_lag_1'
+    ] = float('nan')
+
+    with patch(
+        'ml.prediction.predict.load_latest_registered_model',
+        return_value=model_info,
+    ):
+
+        result = predict_from_registered_model(
+            features=features,
+            target_name=TARGET_NAME,
+        )
+
+    if result[
+        'status'
+    ] != PREDICTION_INVALID:
+
+        raise AssertionError(
+            'Invalid numeric feature did not '
+            'produce invalid prediction.'
+        )
+
+    print(
+        'Prediction invalid numeric feature handling: PASSED'
+    )
+
+
+# ==========================================================
+# INVALID MODEL TESTS
+# ==========================================================
+
+def test_prediction_missing_model_object():
+
+    print(
+        '========== MISSING MODEL OBJECT TEST =========='
+    )
+
+    model_info = create_valid_model_info()
 
     model_info[
-        'target_name'
+        'model'
     ] = None
 
-    data = create_valid_prediction_data()
+    features = create_valid_features()
 
     with patch(
-        'ml.prediction.predict.load_latest_model',
+        'ml.prediction.predict.load_latest_registered_model',
         return_value=model_info,
     ):
 
-        try:
+        result = predict_from_registered_model(
+            features=features,
+            target_name=TARGET_NAME,
+        )
 
-            predict(
-                data
-            )
+    if result[
+        'status'
+    ] != PREDICTION_INVALID:
 
-        except ValueError as exc:
+        raise AssertionError(
+            'Missing model object was not rejected.'
+        )
 
-            if 'target name' not in str(exc):
+    if result[
+        'prediction'
+    ] is not None:
 
-                raise AssertionError(
-                    'Missing target name was not '
-                    'handled correctly.'
-                )
-
-            print(
-                'Missing target name handling: PASSED'
-            )
-
-            return
-
-    raise AssertionError(
-        'Model without target name was accepted.'
-    )
-
-
-# ==========================================================
-# MISSING FEATURE NAMES IN MODEL TEST
-# ==========================================================
-
-def test_missing_model_feature_names():
+        raise AssertionError(
+            'Prediction should be None for missing model.'
+        )
 
     print(
-        '========== MISSING MODEL FEATURES TEST =========='
+        'Missing model object handling: PASSED'
     )
 
-    model_info = create_synthetic_model_info()
+
+class ModelWithoutPredict:
+
+    pass
+
+
+def test_prediction_model_without_predict_method():
+
+    print(
+        '========== MODEL WITHOUT PREDICT TEST =========='
+    )
+
+    model_info = create_valid_model_info()
 
     model_info[
-        'feature_names'
-    ] = []
+        'model'
+    ] = ModelWithoutPredict()
 
-    data = create_valid_prediction_data()
+    features = create_valid_features()
 
     with patch(
-        'ml.prediction.predict.load_latest_model',
+        'ml.prediction.predict.load_latest_registered_model',
         return_value=model_info,
     ):
 
-        try:
+        result = predict_from_registered_model(
+            features=features,
+            target_name=TARGET_NAME,
+        )
 
-            predict(
-                data
-            )
+    if result[
+        'status'
+    ] != PREDICTION_INVALID:
 
-        except ValueError as exc:
+        raise AssertionError(
+            'Model without predict() was accepted.'
+        )
 
-            if 'no feature names' not in str(exc):
+    if 'predict()' not in result.get(
+        'error',
+        '',
+    ):
 
-                raise AssertionError(
-                    'Missing model feature names '
-                    'were not handled correctly.'
-                )
+        raise AssertionError(
+            'Missing predict() error was not reported.'
+        )
 
-            print(
-                'Missing model feature handling: PASSED'
-            )
-
-            return
-
-    raise AssertionError(
-        'Model without feature names was accepted.'
+    print(
+        'Model without predict() handling: PASSED'
     )
 
 
 # ==========================================================
-# MODEL OUTPUT TYPE TEST
+# MODEL PREDICTION FAILURE
+# ==========================================================
+
+class FailingModel:
+
+    def predict(
+        self,
+        X,
+    ):
+
+        raise RuntimeError(
+            'Synthetic prediction failure'
+        )
+
+
+def test_model_prediction_failure():
+
+    print(
+        '========== MODEL PREDICTION FAILURE TEST =========='
+    )
+
+    model_info = create_valid_model_info()
+
+    model_info[
+        'model'
+    ] = FailingModel()
+
+    features = create_valid_features()
+
+    with patch(
+        'ml.prediction.predict.load_latest_registered_model',
+        return_value=model_info,
+    ):
+
+        result = predict_from_registered_model(
+            features=features,
+            target_name=TARGET_NAME,
+        )
+
+    if result[
+        'status'
+    ] != PREDICTION_INVALID:
+
+        raise AssertionError(
+            'Model prediction failure was not handled.'
+        )
+
+    if 'prediction failed' not in result.get(
+        'error',
+        '',
+    ).lower():
+
+        raise AssertionError(
+            'Prediction failure error was not reported.'
+        )
+
+    print(
+        'Model prediction failure handling: PASSED'
+    )
+
+
+# ==========================================================
+# MODEL OUTPUT TESTS
 # ==========================================================
 
 class IntegerOutputModel:
@@ -1595,32 +1545,50 @@ class IntegerOutputModel:
         self,
         X,
     ):
+
         return np.array([
-            123
+            123,
         ])
 
 
-def test_prediction_output_normalization():
+def test_integer_prediction_output():
 
     print(
-        '========== PREDICTION OUTPUT NORMALIZATION TEST =========='
+        '========== INTEGER PREDICTION OUTPUT TEST =========='
     )
 
-    model_info = create_synthetic_model_info()
+    model_info = create_valid_model_info()
 
     model_info[
         'model'
     ] = IntegerOutputModel()
 
-    data = create_valid_prediction_data()
+    features = create_valid_features()
 
     with patch(
-        'ml.prediction.predict.load_latest_model',
+        'ml.prediction.predict.load_latest_registered_model',
         return_value=model_info,
     ):
 
-        result = predict(
-            data
+        result = predict_from_registered_model(
+            features=features,
+            target_name=TARGET_NAME,
+        )
+
+    if result[
+        'status'
+    ] != PREDICTION_VALID:
+
+        raise AssertionError(
+            'Integer prediction output was rejected.'
+        )
+
+    if result[
+        'prediction'
+    ] != 123.0:
+
+        raise AssertionError(
+            'Integer prediction was not normalized to 123.0.'
         )
 
     if not isinstance(
@@ -1629,79 +1597,348 @@ def test_prediction_output_normalization():
     ):
 
         raise AssertionError(
-            'Prediction was not normalized to float.'
-        )
-
-    if result[
-        'prediction'
-    ] != 123.0:
-
-        raise AssertionError(
-            'Prediction normalization produced '
-            'an incorrect value.'
+            'Integer prediction was not converted to float.'
         )
 
     print(
-        'Prediction output normalization: PASSED'
+        'Integer prediction normalization: PASSED'
     )
 
 
-# ==========================================================
-# NEGATIVE PREDICTION PRESERVATION
-# ==========================================================
-
-class NegativeBalanceModel:
+class MultipleOutputModel:
 
     def predict(
         self,
         X,
     ):
+
         return np.array([
-            -250.75
+            100.0,
+            200.0,
         ])
 
 
-def test_negative_prediction_preservation():
+def test_multiple_prediction_outputs():
 
     print(
-        '========== NEGATIVE PREDICTION PRESERVATION TEST =========='
+        '========== MULTIPLE PREDICTION OUTPUT TEST =========='
     )
 
-    model_info = create_synthetic_model_info(
-        target_name='Target_Balance_1D'
-    )
+    model_info = create_valid_model_info()
 
     model_info[
         'model'
-    ] = NegativeBalanceModel()
+    ] = MultipleOutputModel()
 
-    data = create_valid_prediction_data()
+    features = create_valid_features()
 
     with patch(
-        'ml.prediction.predict.load_latest_model',
+        'ml.prediction.predict.load_latest_registered_model',
         return_value=model_info,
     ):
 
-        result = predict(
-            data
+        result = predict_from_registered_model(
+            features=features,
+            target_name=TARGET_NAME,
         )
 
     if result[
-        'prediction'
-    ] != -250.75:
+        'status'
+    ] != PREDICTION_INVALID:
 
         raise AssertionError(
-            'Negative balance prediction was '
-            'incorrectly clamped or modified.'
+            'Multiple predictions were accepted.'
+        )
+
+    if 'exactly one prediction' not in result.get(
+        'error',
+        '',
+    ):
+
+        raise AssertionError(
+            'Multiple prediction error was not reported correctly.'
         )
 
     print(
-        'Negative prediction preservation: PASSED'
+        'Multiple prediction output handling: PASSED'
+    )
+
+
+class NoneOutputModel:
+
+    def predict(
+        self,
+        X,
+    ):
+
+        return None
+
+
+def test_none_prediction_output():
+
+    print(
+        '========== NONE PREDICTION OUTPUT TEST =========='
+    )
+
+    model_info = create_valid_model_info()
+
+    model_info[
+        'model'
+    ] = NoneOutputModel()
+
+    features = create_valid_features()
+
+    with patch(
+        'ml.prediction.predict.load_latest_registered_model',
+        return_value=model_info,
+    ):
+
+        result = predict_from_registered_model(
+            features=features,
+            target_name=TARGET_NAME,
+        )
+
+    if result[
+        'status'
+    ] != PREDICTION_INVALID:
+
+        raise AssertionError(
+            'None prediction output was accepted.'
+        )
+
+    if 'no prediction' not in result.get(
+        'error',
+        '',
+    ).lower():
+
+        raise AssertionError(
+            'None prediction error was not reported.'
+        )
+
+    print(
+        'None prediction output handling: PASSED'
+    )
+
+
+class NaNOutputModel:
+
+    def predict(
+        self,
+        X,
+    ):
+
+        return np.array([
+            float('nan'),
+        ])
+
+
+def test_nan_prediction_output():
+
+    print(
+        '========== NAN PREDICTION OUTPUT TEST =========='
+    )
+
+    model_info = create_valid_model_info()
+
+    model_info[
+        'model'
+    ] = NaNOutputModel()
+
+    features = create_valid_features()
+
+    with patch(
+        'ml.prediction.predict.load_latest_registered_model',
+        return_value=model_info,
+    ):
+
+        result = predict_from_registered_model(
+            features=features,
+            target_name=TARGET_NAME,
+        )
+
+    if result[
+        'status'
+    ] != PREDICTION_INVALID:
+
+        raise AssertionError(
+            'NaN prediction was accepted.'
+        )
+
+    if 'non-finite' not in result.get(
+        'error',
+        '',
+    ).lower():
+
+        raise AssertionError(
+            'Non-finite prediction error was not reported.'
+        )
+
+    print(
+        'NaN prediction output handling: PASSED'
     )
 
 
 # ==========================================================
-# FULL INTEGRATION TEST
+# TARGET NAME
+# ==========================================================
+
+def test_target_name_preservation():
+
+    print(
+        '========== TARGET NAME TEST =========='
+    )
+
+    custom_target = 'Target_Travel_Day_7D'
+
+    model_info = create_valid_model_info()
+
+    model_info[
+        'target_name'
+    ] = custom_target
+
+    features = create_valid_features()
+
+    with patch(
+        'ml.prediction.predict.load_latest_registered_model',
+        return_value=model_info,
+    ):
+
+        result = predict_from_registered_model(
+            features=features,
+            target_name=custom_target,
+        )
+
+    if result[
+        'target_name'
+    ] != custom_target:
+
+        raise AssertionError(
+            'Target name was not preserved.'
+        )
+
+    print(
+        'Target name preservation: PASSED'
+    )
+
+
+# ==========================================================
+# PUBLIC API
+# ==========================================================
+
+def test_public_predict_api():
+
+    print(
+        '========== PUBLIC PREDICT API TEST =========='
+    )
+
+    model_info = create_valid_model_info()
+
+    features = create_valid_features()
+
+    with patch(
+        'ml.prediction.predict.load_latest_registered_model',
+        return_value=model_info,
+    ):
+
+        result = predict(
+            features=features,
+            target_name=TARGET_NAME,
+        )
+
+    if result[
+        'status'
+    ] != PREDICTION_VALID:
+
+        raise AssertionError(
+            'Public predict() API did not return a valid result.'
+        )
+
+    if result[
+        'prediction'
+    ] != 106.0:
+
+        raise AssertionError(
+            'Public predict() returned an unexpected prediction.'
+        )
+
+    print(
+        'Public predict() API: PASSED'
+    )
+
+
+# ==========================================================
+# FEATURE ORDER + PREDICTION INTEGRATION
+# ==========================================================
+
+class OrderSensitiveModel:
+
+    def predict(
+        self,
+        X,
+    ):
+
+        row = X[0]
+
+        return np.array([
+            (
+                row[0] * 1000.0
+                + row[1] * 10.0
+                + row[2]
+            )
+        ])
+
+
+def test_prediction_uses_registered_feature_order():
+
+    print(
+        '========== REGISTERED FEATURE ORDER TEST =========='
+    )
+
+    model_info = create_valid_model_info()
+
+    model_info[
+        'model'
+    ] = OrderSensitiveModel()
+
+    features = {
+        'expense_rolling_mean_7':
+            3.0,
+
+        'expense_lag_7':
+            2.0,
+
+        'expense_lag_1':
+            1.0,
+    }
+
+    with patch(
+        'ml.prediction.predict.load_latest_registered_model',
+        return_value=model_info,
+    ):
+
+        result = predict_from_registered_model(
+            features=features,
+            target_name=TARGET_NAME,
+        )
+
+    expected = 1023.0
+
+    if result[
+        'prediction'
+    ] != expected:
+
+        raise AssertionError(
+            'Prediction did not use the registered '
+            'feature order.'
+        )
+
+    print(
+        'Registered feature order: PASSED'
+    )
+
+
+# ==========================================================
+# FULL INTEGRATION
 # ==========================================================
 
 def test_full_prediction_integration():
@@ -1710,52 +1947,74 @@ def test_full_prediction_integration():
         '========== FULL PREDICTION INTEGRATION TEST =========='
     )
 
-    model_info = create_synthetic_model_info(
-        target_name='Target_Expense_Total_30D',
-        model_history_id=555,
-    )
+    model_info = create_valid_model_info()
 
-    data = create_valid_prediction_data()
+    features = create_valid_features()
 
     with patch(
-        'ml.prediction.predict.load_latest_model',
+        'ml.prediction.predict.load_latest_registered_model',
         return_value=model_info,
     ):
 
-        result = predict(
-            data
+        result = predict_from_registered_model(
+            features=features,
+            target_name=TARGET_NAME,
         )
 
     required_keys = {
-        'prediction',
+        'status',
         'target_name',
-        'model_history_id',
+        'version',
+        'prediction',
         'feature_count',
+        'feature_names',
+        'metadata',
+        'model_path',
+        'metadata_path',
     }
 
-    if not required_keys.issubset(
-        result.keys()
-    ):
+    missing = (
+        required_keys
+        - set(result.keys())
+    )
+
+    if missing:
 
         raise AssertionError(
             'Prediction result is missing '
-            'required fields.'
+            f'required fields: {missing}'
+        )
+
+    if result[
+        'status'
+    ] != PREDICTION_VALID:
+
+        raise AssertionError(
+            'Integration prediction is not valid.'
         )
 
     if result[
         'target_name'
-    ] != 'Target_Expense_Total_30D':
+    ] != TARGET_NAME:
 
         raise AssertionError(
-            'Integration target mismatch.'
+            'Integration target name mismatch.'
         )
 
     if result[
-        'model_history_id'
-    ] != 555:
+        'version'
+    ] != MODEL_VERSION:
 
         raise AssertionError(
-            'Integration model history ID mismatch.'
+            'Integration model version mismatch.'
+        )
+
+    if result[
+        'feature_names'
+    ] != FEATURE_NAMES:
+
+        raise AssertionError(
+            'Integration feature names mismatch.'
         )
 
     if result[
@@ -1764,6 +2023,15 @@ def test_full_prediction_integration():
 
         raise AssertionError(
             'Integration feature count mismatch.'
+        )
+
+    if not isinstance(
+        result['prediction'],
+        float,
+    ):
+
+        raise AssertionError(
+            'Integration prediction is not a float.'
         )
 
     if not math.isfinite(
@@ -1775,12 +2043,12 @@ def test_full_prediction_integration():
         )
 
     print(
-        'Prediction integration: PASSED'
+        'Full prediction integration: PASSED'
     )
 
 
 # ==========================================================
-# TEST RUNNER
+# ALL TESTS
 # ==========================================================
 
 def run_all_tests():
@@ -1790,114 +2058,115 @@ def run_all_tests():
         '=================================================='
     )
     print(
-        '       STRONG PREDICTION TEST SUITE'
+        '       REGISTERED MODEL PREDICTION TEST SUITE'
     )
     print(
         '=================================================='
     )
 
     # ------------------------------------------------------
+    # Numeric feature validation
+    # ------------------------------------------------------
+
+    test_numeric_feature_integer()
+    test_numeric_feature_float()
+    test_numeric_feature_string()
+    test_numeric_feature_boolean()
+    test_numeric_feature_none()
+    test_numeric_feature_invalid_string()
+    test_numeric_feature_nan()
+    test_numeric_feature_infinite()
+    test_numeric_feature_negative()
+
+    # ------------------------------------------------------
     # Feature validation
     # ------------------------------------------------------
 
-    test_validate_prediction_features()
+    test_valid_features()
+    test_features_must_be_dictionary()
+    test_empty_features()
 
-    test_invalid_feature_names_type()
+    # ------------------------------------------------------
+    # Feature schema
+    # ------------------------------------------------------
 
+    test_valid_feature_schema()
     test_missing_feature()
-
-    test_invalid_prediction_data_type()
-
+    test_unexpected_feature()
+    test_feature_names_must_be_list()
     test_empty_feature_names()
-
-    test_forbidden_date_feature()
-
-    test_forbidden_target_feature()
-
-    # ------------------------------------------------------
-    # Feature values
-    # ------------------------------------------------------
-
-    test_boolean_feature()
-
-    test_non_numeric_feature()
-
-    test_numeric_string()
-
-    test_nan_feature()
-
-    test_infinite_feature()
-
-    test_negative_feature()
+    test_invalid_feature_name_type()
+    test_empty_feature_name()
 
     # ------------------------------------------------------
     # Feature vector
     # ------------------------------------------------------
 
-    test_feature_order()
-
-    test_extra_features()
+    test_feature_vector_order()
+    test_feature_vector_numeric_conversion()
 
     # ------------------------------------------------------
-    # Basic prediction
+    # Registry
     # ------------------------------------------------------
 
-    test_prediction()
+    test_load_latest_registered_model_valid()
+    test_load_latest_registered_model_not_found()
+
+    # ------------------------------------------------------
+    # Prediction
+    # ------------------------------------------------------
+
+    test_prediction_success()
+    test_public_predict_api_initial()
+    test_prediction_preserves_feature_schema()
+    test_prediction_preserves_metadata()
+
+    # ------------------------------------------------------
+    # Missing / invalid features
+    # ------------------------------------------------------
+
+    test_prediction_model_not_found()
+    test_prediction_missing_feature()
+    test_prediction_unexpected_feature()
+    test_prediction_invalid_numeric_feature()
+
+    # ------------------------------------------------------
+    # Invalid models
+    # ------------------------------------------------------
+
+    test_prediction_missing_model_object()
+    test_prediction_model_without_predict_method()
+    test_model_prediction_failure()
+
+    # ------------------------------------------------------
+    # Model outputs
+    # ------------------------------------------------------
+
+    test_integer_prediction_output()
+    test_multiple_prediction_outputs()
+    test_none_prediction_output()
+    test_nan_prediction_output()
+
+    # ------------------------------------------------------
+    # Metadata
+    # ------------------------------------------------------
 
     test_target_name_preservation()
 
-    test_model_history_id()
-
-    test_feature_count()
-
-    test_prediction_preservation()
-
     # ------------------------------------------------------
-    # Prediction safety
+    # Public API
     # ------------------------------------------------------
 
-    test_non_finite_prediction()
-
-    test_negative_prediction_preservation()
-
-    test_prediction_output_normalization()
+    test_public_predict_api()
 
     # ------------------------------------------------------
-    # Horizons
+    # Feature order integration
     # ------------------------------------------------------
 
-    test_all_horizons()
-
-    test_horizon_separation()
-
-    test_daily_horizon_structure()
-
-    test_period_horizon_structure()
-
-    test_horizon_uniqueness()
-
-    test_target_horizon_naming()
+    test_prediction_uses_registered_feature_order()
 
     # ------------------------------------------------------
-    # Compatibility
-    # ------------------------------------------------------
-
-    test_predict_expense()
-
-    # ------------------------------------------------------
-    # Error handling
-    # ------------------------------------------------------
-
-    test_no_model()
-
-    test_invalid_loaded_model()
-
-    test_missing_target_name()
-
-    test_missing_model_feature_names()
-
-    # ------------------------------------------------------
-    # Integration
+    # Full integration
     # ------------------------------------------------------
 
     test_full_prediction_integration()
@@ -1915,7 +2184,7 @@ def run_all_tests():
 
 
 # ==========================================================
-# MAIN
+# PYTEST ENTRY POINT
 # ==========================================================
 
 if __name__ == '__main__':

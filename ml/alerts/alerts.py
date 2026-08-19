@@ -565,3 +565,26 @@ def has_alerts(
         )
         > 0
     )
+
+# ==========================================================
+# BACKWARD COMPATIBILITY
+# ==========================================================
+
+def generate_alerts(
+    monitoring_result,
+    maximum_error_rate=None,
+    minimum_reliability_decline=None,
+):
+    """
+    Compatibility wrapper for the integration layer.
+
+    Delegates alert generation to analyze_alerts().
+    """
+
+    return analyze_alerts(
+        monitoring_result,
+        maximum_error_rate=maximum_error_rate,
+        minimum_reliability_decline=(
+            minimum_reliability_decline
+        ),
+    )

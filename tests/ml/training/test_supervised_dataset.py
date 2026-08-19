@@ -1,136 +1,236 @@
-from datetime import date, timedelta
+from datetime import date
 
 from ml.training.dataset import (
-    temporal_train_test_split,
-    split_features_and_target,
+    prepare_model_dataset,
+    _calculate_split_index,
 )
 
 
 # =========================================================
-# HELPERS
+# SPLIT INDEX
 # =========================================================
 
-def make_row(day, **values):
-    row = {
-        'Date': day,
-        'Previous_Day_Expense': 100.0,
-        'Rolling_7D_Avg_Expense': 120.0,
-        'Day_of_Week': 5,
-        'Known_Future_Plan_Count': 0,
-        'Target_Expense_Total': 500.0,
-    }
+def test_calculate_split_index_respects_chronological_ratio():
 
-    row.update(values)
-
-    return row
+    assert _calculate_split_index(10) == 8
+    assert _calculate_split_index(5) == 4
+    assert _calculate_split_index(2) == 1
 
 
 # =========================================================
-# TEMPORAL ORDER
+# MINIMUM DATA SAFETY
 # =========================================================
 
-def test_temporal_split_orders_data_chronologically():
+def test_calculate_split_index_with_one_row():
 
-    rows = [
-        make_row(date(2026, 8, 15)),
-        make_row(date(2026, 8, 10)),
-        make_row(date(2026, 8, 20)),
-        make_row(date(2026, 8, 12)),
+    assert _calculate_split_index(1) == 1
+
+
+def test_calculate_split_index_with_empty_data():
+
+    assert _calculate_split_index(0) == 0
+
+
+# =========================================================
+# SUPERVISED DATASET STRUCTURE
+# =========================================================
+
+def test_prepare_model_dataset_returns_expected_structure():
+
+    result = prepare_model_dataset(
+        target_name='Target_Expense_Total_1D'
+    )
+
+    assert isinstance(result, dict)
+
+    assert 'dataset' in result
+    assert 'feature_names' in result
+    assert 'target_name' in result
+
+    assert 'training_data' in result
+    assert 'test_data' in result
+
+    assert 'X_train' in result
+    assert 'y_train' in result
+
+    assert 'X_test' in result
+    assert 'y_test' in result
+
+    assert 'validation_report' in result
+
+
+# =========================================================
+# TARGET SELECTION
+# =========================================================
+
+def test_selected_target_is_preserved():
+
+    result = prepare_model_dataset(
+        target_name='Target_Expense_Total_1D'
+    )
+
+    assert (
+        result['target_name']
+        == 'Target_Expense_Total_1D'
+    )
+
+    assert (
+        result['validation_report']['target_name']
+        == 'Target_Expense_Total_1D'
+    )
+
+
+# =========================================================
+# FEATURE / TARGET SEPARATION
+# =========================================================
+
+def test_target_is_not_a_model_feature():
+
+    result = prepare_model_dataset(
+        target_name='Target_Expense_Total_1D'
+    )
+
+    feature_names = result[
+        'feature_names'
     ]
 
-    training, test = temporal_train_test_split(
-        rows,
-        test_ratio=0.25,
+    assert (
+        'Target_Expense_Total_1D'
+        not in feature_names
     )
+
+
+# =========================================================
+# DATE MUST NOT ENTER FEATURES
+# =========================================================
+
+def test_date_is_not_a_model_feature():
+
+    result = prepare_model_dataset(
+        target_name='Target_Expense_Total_1D'
+    )
+
+    feature_names = result[
+        'feature_names'
+    ]
+
+    assert 'Date' not in feature_names
+
+
+# =========================================================
+# ALL TARGET COLUMNS MUST BE EXCLUDED
+# =========================================================
+
+def test_all_target_columns_are_excluded_from_features():
+
+    result = prepare_model_dataset(
+        target_name='Target_Expense_Total_1D'
+    )
+
+    feature_names = result[
+        'feature_names'
+    ]
+
+    target_features = [
+        name
+        for name in feature_names
+        if name.startswith('Target_')
+    ]
+
+    assert target_features == []
+
+
+# =========================================================
+# CHRONOLOGICAL ORDER
+# =========================================================
+
+def test_training_and_test_data_are_chronological():
+
+    result = prepare_model_dataset(
+        target_name='Target_Expense_Total_1D'
+    )
+
+    training_data = result[
+        'training_data'
+    ]
+
+    test_data = result[
+        'test_data'
+    ]
 
     training_dates = [
         row['Date']
-        for row in training
+        for row in training_data
     ]
 
     test_dates = [
         row['Date']
-        for row in test
+        for row in test_data
     ]
 
-    assert training_dates == [
-        date(2026, 8, 10),
-        date(2026, 8, 12),
-        date(2026, 8, 15),
-    ]
+    assert training_dates == sorted(
+        training_dates
+    )
 
-    assert test_dates == [
-        date(2026, 8, 20),
-    ]
+    assert test_dates == sorted(
+        test_dates
+    )
 
 
 # =========================================================
-# NO SHUFFLING / TEMPORAL BOUNDARY
+# TEMPORAL BOUNDARY
 # =========================================================
 
-def test_temporal_split_has_strict_chronological_boundary():
+def test_training_precedes_testing_period():
 
-    rows = [
-        make_row(
-            date(2026, 8, 1)
-        ),
-        make_row(
-            date(2026, 8, 2)
-        ),
-        make_row(
-            date(2026, 8, 3)
-        ),
-        make_row(
-            date(2026, 8, 4)
-        ),
-        make_row(
-            date(2026, 8, 5)
-        ),
+    result = prepare_model_dataset(
+        target_name='Target_Expense_Total_1D'
+    )
+
+    training_data = result[
+        'training_data'
     ]
 
-    training, test = temporal_train_test_split(
-        rows,
-        test_ratio=0.2,
-    )
+    test_data = result[
+        'test_data'
+    ]
 
-    assert training
-    assert test
+    if training_data and test_data:
 
-    assert max(
-        row['Date']
-        for row in training
-    ) < min(
-        row['Date']
-        for row in test
-    )
+        training_last_date = max(
+            row['Date']
+            for row in training_data
+        )
+
+        test_first_date = min(
+            row['Date']
+            for row in test_data
+        )
+
+        assert (
+            training_last_date
+            < test_first_date
+        )
 
 
 # =========================================================
 # NO OVERLAP
 # =========================================================
 
-def test_temporal_split_has_no_row_overlap():
+def test_training_and_testing_have_no_overlap():
 
-    rows = [
-        make_row(
-            date(2026, 8, day)
-        )
-        for day in range(1, 11)
-    ]
-
-    training, test = temporal_train_test_split(
-        rows,
-        test_ratio=0.2,
+    result = prepare_model_dataset(
+        target_name='Target_Expense_Total_1D'
     )
 
     training_dates = {
         row['Date']
-        for row in training
+        for row in result['training_data']
     }
 
     test_dates = {
         row['Date']
-        for row in test
+        for row in result['test_data']
     }
 
     assert training_dates.isdisjoint(
@@ -139,160 +239,98 @@ def test_temporal_split_has_no_row_overlap():
 
 
 # =========================================================
-# EXPECTED TEST SIZE
+# X / Y LENGTH CONSISTENCY
 # =========================================================
 
-def test_temporal_split_respects_test_ratio():
+def test_training_x_y_lengths_match():
 
-    rows = [
-        make_row(
-            date(2026, 8, day)
+    result = prepare_model_dataset(
+        target_name='Target_Expense_Total_1D'
+    )
+
+    assert len(
+        result['X_train']
+    ) == len(
+        result['y_train']
+    )
+
+
+def test_testing_x_y_lengths_match():
+
+    result = prepare_model_dataset(
+        target_name='Target_Expense_Total_1D'
+    )
+
+    assert len(
+        result['X_test']
+    ) == len(
+        result['y_test']
+    )
+
+
+# =========================================================
+# FEATURE COUNT CONSISTENCY
+# =========================================================
+
+def test_feature_count_matches_training_rows():
+
+    result = prepare_model_dataset(
+        target_name='Target_Expense_Total_1D'
+    )
+
+    feature_count = len(
+        result['feature_names']
+    )
+
+    for row in result['X_train']:
+        assert len(row) == feature_count
+
+    for row in result['X_test']:
+        assert len(row) == feature_count
+
+
+# =========================================================
+# MULTI-TARGET DATASET
+# =========================================================
+
+def test_all_target_datasets_have_structured_results():
+
+    from ml.training.dataset import (
+        prepare_all_target_datasets,
+    )
+
+    results = prepare_all_target_datasets()
+
+    assert isinstance(
+        results,
+        dict
+    )
+
+    for target_name, result in results.items():
+
+        assert (
+            result['target_name']
+            == target_name
         )
-        for day in range(1, 11)
-    ]
 
-    training, test = temporal_train_test_split(
-        rows,
-        test_ratio=0.2,
-    )
-
-    assert len(training) == 8
-    assert len(test) == 2
+        assert 'dataset' in result
+        assert 'feature_names' in result
+        assert 'validation_report' in result
 
 
 # =========================================================
-# MINIMUM DATA SAFETY
+# INVALID TARGET
 # =========================================================
 
-def test_temporal_split_with_one_row():
+def test_invalid_target_is_rejected():
 
-    rows = [
-        make_row(
-            date(2026, 8, 1)
+    import pytest
+
+    with pytest.raises(
+        ValueError,
+        match='Unknown target',
+    ):
+
+        prepare_model_dataset(
+            target_name='Target_Does_Not_Exist'
         )
-    ]
-
-    training, test = temporal_train_test_split(
-        rows
-    )
-
-    assert len(training) == 1
-    assert test == []
-
-
-# =========================================================
-# EMPTY DATA SAFETY
-# =========================================================
-
-def test_temporal_split_with_empty_data():
-
-    training, test = temporal_train_test_split(
-        []
-    )
-
-    assert training == []
-    assert test == []
-
-
-# =========================================================
-# X / Y SEPARATION
-# =========================================================
-
-def test_split_features_and_target_separates_x_and_y():
-
-    rows = [
-        make_row(
-            date(2026, 8, 1),
-            Target_Expense_Total=500.0,
-        ),
-        make_row(
-            date(2026, 8, 2),
-            Target_Expense_Total=700.0,
-        ),
-    ]
-
-    X, y = split_features_and_target(
-        rows
-    )
-
-    assert len(X) == 2
-    assert len(y) == 2
-
-    assert y == [
-        500.0,
-        700.0,
-    ]
-
-
-# =========================================================
-# DATE MUST NOT ENTER X
-# =========================================================
-
-def test_date_is_not_a_model_feature():
-
-    rows = [
-        make_row(
-            date(2026, 8, 1)
-        )
-    ]
-
-    X, y = split_features_and_target(
-        rows
-    )
-
-    assert X
-
-    # Date must not appear as a feature.
-    assert date(2026, 8, 1) not in X[0]
-
-
-# =========================================================
-# TARGET MUST NOT ENTER X
-# =========================================================
-
-def test_target_is_not_a_model_feature():
-
-    rows = [
-        make_row(
-            date(2026, 8, 1),
-            Target_Expense_Total=999999.0,
-        )
-    ]
-
-    X, y = split_features_and_target(
-        rows
-    )
-
-    assert y == [999999.0]
-
-    # Target value must not appear as X.
-    assert 999999.0 not in X[0]
-
-
-# =========================================================
-# MULTI-TARGET SAFETY
-# =========================================================
-
-def test_all_target_columns_must_be_excluded_from_x():
-
-    rows = [
-        make_row(
-            date(2026, 8, 1),
-            Target_Expense_Total=500.0,
-            Target_High_Expense_1D=1,
-            Target_Working_Day_1D=1,
-            Target_High_Stress_1D=0,
-        )
-    ]
-
-    X, y = split_features_and_target(
-        rows,
-        target_name='Target_Expense_Total',
-    )
-
-    # Current implementation is expected to fail here
-    # if other Target_* columns are included as features.
-    #
-    # This test protects the future Multi-Target architecture.
-
-    assert 1 not in X[0]

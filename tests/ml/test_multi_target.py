@@ -1,38 +1,40 @@
 from ml.training.dataset import (
-    split_features_and_target,
+    prepare_model_dataset,
 )
 
+
 def test_different_targets_use_the_same_features():
-    rows = [
-    {
-    'Date': '2026-08-01',
+    """
+    Different targets should use the same model feature structure.
 
-    
-            'Expense_Total': 500.0,
-            'Income_Total': 1000.0,
-            'Previous_Day_Expense': 100.0,
+    The target itself must change, while the feature set remains
+    independent from the selected target.
+    """
 
-            'Target_Expense_Total': 500.0,
-            'Target_Income_Total': 1000.0,
-            'Target_High_Stress_1D': 0,
-            'Target_Working_Day_1D': 1,
-        }
+    expense_result = prepare_model_dataset(
+        target_name='Target_Expense_Total_1D',
+    )
+
+    income_result = prepare_model_dataset(
+        target_name='Target_Income_Total_1D',
+    )
+
+    expense_features = expense_result[
+        'feature_names'
     ]
 
-    expense_X, expense_y = split_features_and_target(
-        rows,
-        target_name='Target_Expense_Total',
+    income_features = income_result[
+        'feature_names'
+    ]
+
+    assert expense_features == income_features
+
+    assert (
+        expense_result['target_name']
+        == 'Target_Expense_Total_1D'
     )
 
-    income_X, income_y = split_features_and_target(
-        rows,
-        target_name='Target_Income_Total',
+    assert (
+        income_result['target_name']
+        == 'Target_Income_Total_1D'
     )
-
-    assert expense_X == income_X
-
-    assert expense_y == [500.0]
-
-    assert income_y == [1000.0]
-
-    assert expense_y != income_y

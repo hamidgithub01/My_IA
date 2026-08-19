@@ -13,6 +13,10 @@ from ml.alerts.alerts import (
     has_alerts,
 )
 
+from ml.prediction.reliability_monitoring import (
+    evaluate_reliability,
+)
+
 
 # ==========================================================
 # NO ALERT
@@ -408,6 +412,71 @@ def test_invalid_inputs():
 
 
 # ==========================================================
+# PREDICTION MONITORING → ALERT CONTRACT
+# ==========================================================
+
+def test_prediction_monitoring_result_can_feed_alerts():
+
+    prediction_result = {
+        'prediction': 100.0,
+        'target_name': 'Target_Test',
+        'target_task': 'regression',
+    }
+
+    monitoring_result = evaluate_reliability(
+        prediction_result,
+        actual_value=150.0,
+    )
+
+    assert (
+        monitoring_result['status']
+        == 'evaluated'
+    )
+
+    assert (
+        monitoring_result[
+            'reliability_available'
+        ]
+        is True
+    )
+
+    monitoring_record = (
+        monitoring_result[
+            'monitoring_record'
+        ]
+    )
+
+    alert_input = {
+        'target_name':
+            prediction_result[
+                'target_name'
+            ],
+
+        'reliability_level':
+            monitoring_result[
+                'reliability'
+            ],
+    }
+
+    alert_result = analyze_alerts(
+        alert_input
+    )
+
+    assert isinstance(
+        alert_result,
+        dict,
+    )
+
+    assert 'status' in alert_result
+    assert 'alert_count' in alert_result
+    assert 'alerts' in alert_result
+
+    assert (
+        alert_result['alert_count']
+        == len(alert_result['alerts'])
+    )
+
+# ==========================================================
 # MAIN
 # ==========================================================
 
@@ -440,3 +509,189 @@ if __name__ == '__main__':
     print(
         'ALL ALERT TESTS PASSED'
     )
+
+# ==========================================================
+# ALERT RESULT CONTRACT
+# ==========================================================
+
+def test_alert_result_contract():
+
+    result = analyze_alerts(
+        {
+            'target_name':
+                'Target_Contract',
+
+            'reliability_level':
+                'low',
+        }
+    )
+
+    assert isinstance(
+        result,
+        dict,
+    )
+
+    assert 'status' in result
+    assert 'alert_count' in result
+    assert 'alerts' in result
+
+    assert result['alert_count'] == len(
+        result['alerts']
+    )
+
+
+# ==========================================================
+# ALERT OBJECT CONTRACT
+# ==========================================================
+
+def test_alert_object_contract():
+
+    result = analyze_alerts(
+        {
+            'target_name':
+                'Target_Contract',
+
+            'reliability_level':
+                'low',
+        }
+    )
+
+    assert result['alerts']
+
+    alert = result['alerts'][0]
+
+    required_fields = {
+        'alert_type',
+        'severity',
+        'message',
+        'reason',
+        'target_name',
+    }
+
+    assert required_fields.issubset(
+        alert.keys()
+    )
+
+
+# ==========================================================
+# ALERT TARGET IS PRESERVED
+# ==========================================================
+
+def test_alert_target_is_preserved():
+
+    result = analyze_alerts(
+        {
+            'target_name':
+                'Target_Contract',
+
+            'reliability_level':
+                'low',
+        }
+    )
+
+    alert = result['alerts'][0]
+
+    assert (
+        alert['target_name']
+        == 'Target_Contract'
+    )
+
+
+# ==========================================================
+# NO ALERT RESULT CONTRACT
+# ==========================================================
+
+def test_no_alert_result_contract():
+
+    result = analyze_alerts(
+        {
+            'target_name':
+                'Target_Contract',
+
+            'reliability_level':
+                'high',
+
+            'quality_score':
+                0.95,
+        }
+    )
+
+    assert isinstance(
+        result,
+        dict,
+    )
+
+    assert (
+        result['status']
+        == ALERT_NONE
+    )
+
+    assert (
+        result['alert_count']
+        == 0
+    )
+
+    assert (
+        result['alerts']
+        == []
+    )
+
+    assert (
+        result['alert_count']
+        == len(result['alerts'])
+    )
+
+
+# ==========================================================
+# MULTIPLE ALERTS CONTRACT
+# ==========================================================
+
+def test_multiple_alerts_contract():
+
+    result = analyze_alerts(
+        {
+            'target_name':
+                'Target_Contract',
+
+            'status':
+                'unreliable',
+
+            'reliability_level':
+                'low',
+
+            'error_rate':
+                0.50,
+
+            'quality_score':
+                0.40,
+
+            'previous_quality_score':
+                0.90,
+        },
+        maximum_error_rate=0.25,
+        minimum_reliability_decline=0.20,
+    )
+
+    assert (
+        result['alert_count']
+        == len(result['alerts'])
+    )
+
+    for alert in result['alerts']:
+
+        assert isinstance(
+            alert,
+            dict,
+        )
+
+        required_fields = {
+            'alert_type',
+            'severity',
+            'message',
+            'reason',
+            'target_name',
+        }
+
+        assert required_fields.issubset(
+            alert.keys()
+        )

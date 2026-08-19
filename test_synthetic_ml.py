@@ -1,5 +1,6 @@
 from datetime import date, timedelta
-from unittest.mock import patch
+
+from sklearn.linear_model import LinearRegression
 
 from ml.evaluation.evaluate import (
     evaluate_model,
@@ -38,28 +39,16 @@ def build_synthetic_dataset():
 
         rows.append(
             {
-                'Date': current_date,
-
-                # --------------------------------------------------
-                # Feature intentionally correlated with target.
-                # The model should learn:
-                #
-                # expense = 100 + 10 * Synthetic_Expense_Signal
-                # --------------------------------------------------
+                'Date':
+                    current_date,
 
                 'Synthetic_Expense_Signal':
                     float(index),
 
-                # --------------------------------------------------
-                # Additional feature
-                # --------------------------------------------------
-
                 'Day_of_Week':
-                    float(current_date.weekday()),
-
-                # --------------------------------------------------
-                # Real target
-                # --------------------------------------------------
+                    float(
+                        current_date.weekday()
+                    ),
 
                 'Target_Expense_Total':
                     expense,
@@ -67,6 +56,133 @@ def build_synthetic_dataset():
         )
 
     return rows
+
+
+# ==========================================================
+# BUILD SYNTHETIC TRAINING RESULT
+# ==========================================================
+
+def build_synthetic_training_result():
+
+    dataset = build_synthetic_dataset()
+
+    # ------------------------------------------------------
+    # Chronological split
+    #
+    # 10 rows:
+    #
+    # Training = first 8
+    # Testing  = last 2
+    # ------------------------------------------------------
+
+    training_data = dataset[:8]
+
+    test_data = dataset[8:]
+
+    feature_names = [
+        'Synthetic_Expense_Signal',
+        'Day_of_Week',
+    ]
+
+    X_train = [
+        [
+            row['Synthetic_Expense_Signal'],
+            row['Day_of_Week'],
+        ]
+        for row in training_data
+    ]
+
+    y_train = [
+        row['Target_Expense_Total']
+        for row in training_data
+    ]
+
+    X_test = [
+        [
+            row['Synthetic_Expense_Signal'],
+            row['Day_of_Week'],
+        ]
+        for row in test_data
+    ]
+
+    y_test = [
+        row['Target_Expense_Total']
+        for row in test_data
+    ]
+
+    # ------------------------------------------------------
+    # Use the same regression model family used by the
+    # project.
+    # ------------------------------------------------------
+
+    model = LinearRegression()
+
+    model.fit(
+        X_train,
+        y_train,
+    )
+
+    # ------------------------------------------------------
+    # Construct the same contract produced by
+    # train_target_model().
+    # ------------------------------------------------------
+
+    return {
+
+        'model':
+            model,
+
+        'target_name':
+            'Target_Expense_Total',
+
+        'target_task':
+            'regression',
+
+        'target_type':
+            'numeric',
+
+        'model_type':
+            'regression',
+
+        'algorithm':
+            model.__class__.__name__,
+
+        'class_count':
+            None,
+
+        'classes':
+            None,
+
+        'feature_names':
+            feature_names,
+
+        'training_rows':
+            len(X_train),
+
+        'test_rows':
+            len(X_test),
+
+        'training_data':
+            training_data,
+
+        'test_data':
+            test_data,
+
+        'X_train':
+            X_train,
+
+        'y_train':
+            y_train,
+
+        'X_test':
+            X_test,
+
+        'y_test':
+            y_test,
+
+        'validation_report':
+            {},
+    }
 
 
 # ==========================================================
@@ -95,7 +211,9 @@ def test_synthetic_training_and_evaluation():
     # Dataset validation
     # ------------------------------------------------------
 
-    assert len(synthetic_dataset) == 10
+    assert len(
+        synthetic_dataset
+    ) == 10
 
     target_values = [
         row['Target_Expense_Total']
@@ -106,7 +224,9 @@ def test_synthetic_training_and_evaluation():
         target_values
     )
 
-    assert len(unique_targets) > 1
+    assert len(
+        unique_targets
+    ) > 1
 
     print(
         f'Synthetic rows: '
@@ -132,7 +252,9 @@ def test_synthetic_training_and_evaluation():
         for row in synthetic_dataset
     ]
 
-    assert dates == sorted(dates)
+    assert dates == sorted(
+        dates
+    )
 
     print()
     print(
@@ -140,23 +262,36 @@ def test_synthetic_training_and_evaluation():
     )
 
     # ------------------------------------------------------
-    # Replace the real database-backed dataset
-    # temporarily.
-    #
-    # The actual evaluate_model() implementation is still
-    # being executed.
+    # Build synthetic training result
     # ------------------------------------------------------
 
-    with patch(
-        'ml.evaluation.evaluate.build_training_dataset',
-        return_value=synthetic_dataset,
-    ):
+    training_result = (
+        build_synthetic_training_result()
+    )
 
-        result = evaluate_model(
-            training_result=None,
-            test_ratio=0.2,
-            min_test_rows=2,
-        )
+    assert (
+        training_result['training_rows']
+        == 8
+    )
+
+    assert (
+        training_result['test_rows']
+        == 2
+    )
+
+    # ------------------------------------------------------
+    # Actual Evaluation layer
+    #
+    # No database.
+    # No dataset rebuilding.
+    # No retraining inside evaluate_model().
+    # ------------------------------------------------------
+
+    result = evaluate_model(
+        training_result=training_result,
+        test_ratio=0.2,
+        min_test_rows=2,
+    )
 
     # ------------------------------------------------------
     # Evaluation status
@@ -167,9 +302,10 @@ def test_synthetic_training_and_evaluation():
         == EVALUATION_VALID
     )
 
-    assert result[
-        'evaluation_valid'
-    ] is True
+    assert (
+        result['evaluation_valid']
+        is True
+    )
 
     print(
         'Evaluation status: VALID'
@@ -179,13 +315,19 @@ def test_synthetic_training_and_evaluation():
     # Training target variation
     # ------------------------------------------------------
 
-    assert result[
-        'training_target_has_variation'
-    ] is True
+    assert (
+        result[
+            'training_target_has_variation'
+        ]
+        is True
+    )
 
-    assert result[
-        'training_target_unique_count'
-    ] > 1
+    assert (
+        result[
+            'training_target_unique_count'
+        ]
+        > 1
+    )
 
     print(
         'Training target variation: PASSED'
@@ -195,13 +337,15 @@ def test_synthetic_training_and_evaluation():
     # Dataset split
     # ------------------------------------------------------
 
-    assert result[
-        'training_rows'
-    ] == 8
+    assert (
+        result['training_rows']
+        == 8
+    )
 
-    assert result[
-        'testing_rows'
-    ] == 2
+    assert (
+        result['testing_rows']
+        == 2
+    )
 
     print()
     print(
@@ -231,6 +375,13 @@ def test_synthetic_training_and_evaluation():
         > last_training_date
     )
 
+    assert (
+        result[
+            'chronological_boundary_valid'
+        ]
+        is True
+    )
+
     print(
         'Temporal separation: PASSED'
     )
@@ -239,7 +390,9 @@ def test_synthetic_training_and_evaluation():
     # Metrics
     # ------------------------------------------------------
 
-    metrics = result['metrics']
+    metrics = result[
+        'metrics'
+    ]
 
     print()
     print(
@@ -258,21 +411,18 @@ def test_synthetic_training_and_evaluation():
     )
 
     # ------------------------------------------------------
-    # R² must now be a real value.
-    #
-    # Unlike the real empty database, the synthetic
-    # training data contains target variation.
+    # R² must be a real value.
     # ------------------------------------------------------
 
-    assert metrics[
-        'r_squared'
-    ] is not None
+    assert (
+        metrics['r_squared']
+        is not None
+    )
 
-    # The synthetic relationship is intentionally simple,
-    # so the model should achieve an excellent score.
-    assert metrics[
-        'r_squared'
-    ] > 0.90
+    assert (
+        metrics['r_squared']
+        > 0.90
+    )
 
     # ------------------------------------------------------
     # Predictions
@@ -286,9 +436,13 @@ def test_synthetic_training_and_evaluation():
         'predicted_values'
     ]
 
-    assert len(actual_values) == 2
+    assert len(
+        actual_values
+    ) == 2
 
-    assert len(predicted_values) == 2
+    assert len(
+        predicted_values
+    ) == 2
 
     print()
     print(
@@ -314,13 +468,16 @@ def test_synthetic_training_and_evaluation():
         predicted_values,
     ):
 
-        assert predicted >= 0.0
+        assert (
+            predicted >= 0.0
+        )
 
-        # Predictions should be reasonably close to
-        # the known synthetic target values.
-        assert abs(
-            actual - predicted
-        ) < 25.0
+        assert (
+            abs(
+                actual - predicted
+            )
+            < 25.0
+        )
 
     print()
     print(
