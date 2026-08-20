@@ -1,0 +1,396 @@
+/* ==========================================================
+   PERSONAL FINANCE AI
+   GLOBAL APPLICATION STYLES
+   ========================================================== */
+
+
+/* ==========================================================
+   ROOT
+   ========================================================== */
+
+:root {
+    --app-background: #f7f8fc;
+    --surface: #ffffff;
+    --surface-soft: #f3f5f9;
+
+    --text-primary: #111827;
+    --text-secondary: #6b7280;
+    --text-muted: #9ca3af;
+
+    --border: #e5e7eb;
+    --border-soft: #eef0f4;
+
+    --primary: #4f46e5;
+    --primary-dark: #4338ca;
+    --primary-soft: #eef2ff;
+
+    --success: #16a34a;
+    --success-soft: #f0fdf4;
+
+    --warning: #d97706;
+    --warning-soft: #fffbeb;
+
+    --danger: #dc2626;
+    --danger-soft: #fef2f2;
+
+    --info: #0284c7;
+    --info-soft: #f0f9ff;
+
+    --sidebar-width: 256px;
+    --header-height: 64px;
+
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+    --radius-xl: 20px;
+
+    --shadow-sm:
+        0 1px 2px rgba(15, 23, 42, 0.04);
+
+    --shadow-md:
+        0 4px 12px rgba(15, 23, 42, 0.06);
+
+    --shadow-lg:
+        0 10px 30px rgba(15, 23, 42, 0.08);
+}
+
+
+/* ==========================================================
+   GLOBAL RESET
+   ========================================================== */
+
+html,
+body {
+    margin: 0;
+    padding: 0;
+    min-height: 100%;
+}
+
+body {
+    background: var(--app-background);
+    color: var(--text-primary);
+
+    font-family:
+        Inter,
+        ui-sans-serif,
+        system-ui,
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        sans-serif;
+
+    font-size: 14px;
+    line-height: 1.5;
+
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+}
+
+
+/* ==========================================================
+   NICEGUI ROOT
+   ========================================================== */
+
+#q-app {
+    min-height: 100vh;
+    background: var(--app-background);
+}
+
+
+/* ==========================================================
+   TEXT
+   ========================================================== */
+
+.text-primary-app {
+    color: var(--text-primary);
+}
+
+.text-secondary-app {
+    color: var(--text-secondary);
+}
+
+.text-muted-app {
+    color: var(--text-muted);
+}
+
+
+/* ==========================================================
+   SURFACES
+   ========================================================== */
+
+.app-surface {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+}
+
+.app-surface-soft {
+    background: var(--surface-soft);
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius-lg);
+}
+
+
+/* ==========================================================
+   CARDS
+   ========================================================== */
+
+.app-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+
+    transition:
+        box-shadow 160ms ease,
+        transform 160ms ease,
+        border-color 160ms ease;
+}
+
+.app-card:hover {
+    border-color: #d9dce4;
+    box-shadow: var(--shadow-md);
+}
+
+
+/* ==========================================================
+   BUTTONS
+   ========================================================== */
+
+.app-button {
+    border-radius: var(--radius-md);
+    font-weight: 600;
+    transition:
+        background-color 160ms ease,
+        border-color 160ms ease,
+        box-shadow 160ms ease,
+        transform 160ms ease;
+}
+
+.app-button:active {
+    transform: translateY(1px);
+}
+
+
+/* ==========================================================
+   ICON CONTAINERS
+   ========================================================== */
+
+.app-icon {
+    width: 40px;
+    height: 40px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border-radius: var(--radius-md);
+
+    background: var(--primary-soft);
+    color: var(--primary);
+}
+
+
+/* ==========================================================
+   STATUS
+   ========================================================== */
+
+.status-dot {
+    width: 8px;
+    height: 8px;
+
+    border-radius: 50%;
+
+    display: inline-block;
+    flex-shrink: 0;
+}
+
+.status-dot-success {
+    background: var(--success);
+}
+
+.status-dot-warning {
+    background: var(--warning);
+}
+
+.status-dot-danger {
+    background: var(--danger);
+}
+
+.status-dot-info {
+    background: var(--info);
+}
+
+.status-dot-neutral {
+    background: var(--text-muted);
+}
+
+
+/* ==========================================================
+   SCROLLBAR
+   ========================================================== */
+
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #d1d5db;
+    border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #9ca3af;
+}
+
+
+/* ==========================================================
+   FOCUS
+   ========================================================== */
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+}
+
+
+/* ==========================================================
+   LINKS
+   ========================================================== */
+
+a {
+    color: inherit;
+    text-decoration: none;
+}
+
+a:hover {
+    text-decoration: none;
+}
+
+
+/* ==========================================================
+   TABLES
+   ========================================================== */
+
+.app-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.app-table th {
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-weight: 600;
+    text-align: left;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+}
+
+.app-table td {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border-soft);
+}
+
+.app-table tr:last-child td {
+    border-bottom: none;
+}
+
+
+/* ==========================================================
+   EMPTY STATES
+   ========================================================== */
+
+.empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+
+    min-height: 180px;
+
+    padding: 32px;
+
+    text-align: center;
+
+    background: var(--surface-soft);
+    border: 1px dashed var(--border);
+    border-radius: var(--radius-lg);
+}
+
+.empty-state-icon {
+    margin-bottom: 12px;
+
+    font-size: 32px;
+
+    color: var(--text-muted);
+}
+
+
+/* ==========================================================
+   RESPONSIVE
+   ========================================================== */
+
+@media (max-width: 1023px) {
+
+    :root {
+        --sidebar-width: 240px;
+    }
+
+    body {
+        font-size: 14px;
+    }
+}
+
+
+@media (max-width: 767px) {
+
+    :root {
+        --header-height: 56px;
+    }
+
+    body {
+        font-size: 13px;
+    }
+
+    .app-card {
+        border-radius: var(--radius-md);
+    }
+}
+
+
+@media (max-width: 480px) {
+
+    body {
+        font-size: 13px;
+    }
+
+    .app-card {
+        border-radius: var(--radius-sm);
+    }
+}
+
+
+/* ==========================================================
+   REDUCED MOTION
+   ========================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+
+    *,
+    *::before,
+    *::after {
+        scroll-behavior: auto !important;
+        transition-duration: 0.01ms !important;
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+    }
+}
