@@ -55,6 +55,8 @@ if ASSETS_DIR.exists():
     )
 
 
+APP_TITLE = 'Personal Behavior and Life Intelligence System'
+
 # ==========================================================
 # PAGE REGISTRY
 # ==========================================================
@@ -66,13 +68,16 @@ def register_page(
 ):
     @ui.page(route)
     def page():
+        page_title = active_page.replace('_', ' ').title()
+
+        ui.page_title(f'{page_title} | {APP_TITLE}')
+
         content = create_shell(
             active_page=active_page,
         )
 
         with content:
             renderer()
-
 
 # ==========================================================
 # MAIN
@@ -249,7 +254,7 @@ def main():
     ui.run(
         host='127.0.0.1',
         port=8090,
-        title='Personal Finance AI',
+        title=APP_TITLE,
         reload=False,
         show=False,
     )

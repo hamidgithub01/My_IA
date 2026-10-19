@@ -1,3 +1,4 @@
+
 import math
 
 
@@ -5,7 +6,7 @@ from ml.models.registry import (
     REGISTRY_VALID,
     REGISTRY_NOT_FOUND,
     REGISTRY_INVALID,
-    get_latest_model_version,
+    get_active_model_version,
     load_registered_model,
 )
 
@@ -312,7 +313,7 @@ def build_feature_vector(
 
 
 # ==========================================================
-# LOAD LATEST REGISTERED MODEL
+# LOAD ACTIVE REGISTERED MODEL
 # ==========================================================
 
 def load_latest_registered_model(
@@ -320,9 +321,29 @@ def load_latest_registered_model(
     registry_dir=None,
 ):
     """
-    Load the latest registered model for a target.
+    Load the active registered model for a target.
+
+    IMPORTANT:
+
+    Despite the historical function name
+    `load_latest_registered_model`, production prediction
+    must NEVER use the latest saved model automatically.
+
+    The registry distinguishes between:
+
+        LATEST
+            The most recently registered version.
+
+        ACTIVE
+            The version explicitly activated for
+            production inference.
+
+    Prediction must use ACTIVE.
 
     No training is performed.
+
+    The historical function name is preserved for
+    backward compatibility with existing callers/tests.
 
     Returns a structured result containing:
 
@@ -339,7 +360,18 @@ def load_latest_registered_model(
         target_name
     )
 
-    version = get_latest_model_version(
+    # ------------------------------------------------------
+    # IMPORTANT:
+    #
+    # Production inference uses ACTIVE, not LATEST.
+    #
+    # A newly saved candidate can become LATEST without
+    # being activated. Such a candidate must never be used
+    # by prediction until activate_registered_model()
+    # explicitly makes it ACTIVE.
+    # ------------------------------------------------------
+
+    version = get_active_model_version(
         target_name,
         registry_dir,
     )
@@ -492,11 +524,11 @@ def predict_from_registered_model(
     registry_dir=None,
 ):
     """
-    Generate a prediction using the latest registered model.
+    Generate a prediction using the active registered model.
 
     Pipeline:
 
-        Load latest registered model
+        Load active registered model
               ↓
         Load metadata
               ↓
@@ -505,6 +537,13 @@ def predict_from_registered_model(
         Build feature vector
               ↓
         Predict
+
+    IMPORTANT:
+
+        Prediction uses ACTIVE model only.
+
+        It does not use the latest saved candidate
+        unless that candidate has explicitly been activated.
 
     No training is performed.
     """
@@ -562,7 +601,7 @@ def predict_from_registered_model(
             'error':
                 model_info.get(
                     'error'
-            ),
+                ),
         }
 
     model = model_info[
@@ -1015,7 +1054,7 @@ def predict(
     """
     Public prediction API.
 
-    Uses the latest registered model.
+    Uses the active registered model.
 
     No training is performed.
     """
@@ -1070,7 +1109,7 @@ if __name__ == '__main__':
     )
 
     print(
-        'Model version:',
+        'Active model version:',
         model_info[
             'version'
         ]
@@ -1133,7 +1172,7 @@ if __name__ == '__main__':
     )
 
     print(
-        'Model version:',
+        'Active model version:',
         result[
             'version'
         ]
@@ -1173,7 +1212,7 @@ if __name__ == '__main__':
     )
 
     print(
-        '   REGISTERED MODEL PREDICTION TEST PASSED'
+        '   ACTIVE MODEL PREDICTION TEST PASSED'
     )
 
     print(

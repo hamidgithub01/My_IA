@@ -1,3 +1,4 @@
+
 from database.queries import (
     get_all_health_records,
     get_health_record_by_id,
@@ -27,6 +28,10 @@ def add_health_record(
     symptoms,
     severity,
     treatment,
+    physical_activity,
+    sugar_intake,
+    sleep_quality,
+    water_intake,
     notes,
 ):
     return query_add_health_record(
@@ -36,6 +41,10 @@ def add_health_record(
         symptoms,
         severity,
         treatment,
+        physical_activity,
+        sugar_intake,
+        sleep_quality,
+        water_intake,
         notes,
     )
 
@@ -48,6 +57,10 @@ def update_health_record(
     symptoms,
     severity,
     treatment,
+    physical_activity,
+    sugar_intake,
+    sleep_quality,
+    water_intake,
     notes,
 ):
     return query_update_health_record(
@@ -58,6 +71,10 @@ def update_health_record(
         symptoms,
         severity,
         treatment,
+        physical_activity,
+        sugar_intake,
+        sleep_quality,
+        water_intake,
         notes,
     )
 

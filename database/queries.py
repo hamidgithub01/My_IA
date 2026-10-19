@@ -826,48 +826,62 @@ def delete_travel(travel_id):
 # =========================================================
 # HEALTH RECORDS QUERIES
 # =========================================================
-
 def get_all_health_records():
     connection = get_connection()
+
     try:
         cursor = connection.cursor(dictionary=True)
+
         cursor.execute("""
             SELECT *
             FROM health_records
             ORDER BY Date DESC, Health_ID DESC
         """)
+
         return cursor.fetchall()
+
     finally:
         cursor.close()
         connection.close()
 
+
 def get_health_record_by_id(health_id):
     connection = get_connection()
+
     try:
         cursor = connection.cursor(dictionary=True)
+
         cursor.execute("""
             SELECT *
             FROM health_records
             WHERE Health_ID = %s
         """, (health_id,))
+
         return cursor.fetchone()
+
     finally:
         cursor.close()
         connection.close()
 
+
 def get_health_record_by_date(date):
     connection = get_connection()
+
     try:
         cursor = connection.cursor(dictionary=True)
+
         cursor.execute("""
             SELECT *
             FROM health_records
             WHERE Date = %s
         """, (date,))
+
         return cursor.fetchone()
+
     finally:
         cursor.close()
         connection.close()
+
 
 def add_health_record(
     date,
@@ -876,11 +890,17 @@ def add_health_record(
     symptoms,
     severity,
     treatment,
+    physical_activity,
+    sugar_intake,
+    sleep_quality,
+    water_intake,
     notes,
 ):
     connection = get_connection()
+
     try:
         cursor = connection.cursor()
+
         cursor.execute("""
             INSERT INTO health_records (
                 Date,
@@ -889,9 +909,25 @@ def add_health_record(
                 Symptoms,
                 Severity,
                 Treatment,
+                Physical_Activity,
+                Sugar_Intake,
+                Sleep_Quality,
+                Water_Intake,
                 Notes
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            VALUES (
+                %s,
+                %s,
+                %s,
+                %s,
+                %s,
+                %s,
+                %s,
+                %s,
+                %s,
+                %s,
+                %s
+            )
         """, (
             date,
             health_status,
@@ -899,12 +935,19 @@ def add_health_record(
             symptoms,
             severity,
             treatment,
+            physical_activity,
+            sugar_intake,
+            sleep_quality,
+            water_intake,
             notes,
         ))
+
         connection.commit()
+
     finally:
         cursor.close()
         connection.close()
+
 
 def update_health_record(
     health_id,
@@ -914,11 +957,17 @@ def update_health_record(
     symptoms,
     severity,
     treatment,
+    physical_activity,
+    sugar_intake,
+    sleep_quality,
+    water_intake,
     notes,
 ):
     connection = get_connection()
+
     try:
         cursor = connection.cursor()
+
         cursor.execute("""
             UPDATE health_records
             SET
@@ -928,6 +977,10 @@ def update_health_record(
                 Symptoms = %s,
                 Severity = %s,
                 Treatment = %s,
+                Physical_Activity = %s,
+                Sugar_Intake = %s,
+                Sleep_Quality = %s,
+                Water_Intake = %s,
                 Notes = %s
             WHERE Health_ID = %s
         """, (
@@ -937,27 +990,37 @@ def update_health_record(
             symptoms,
             severity,
             treatment,
+            physical_activity,
+            sugar_intake,
+            sleep_quality,
+            water_intake,
             notes,
             health_id,
         ))
+
         connection.commit()
+
     finally:
         cursor.close()
         connection.close()
 
+
 def delete_health_record(health_id):
     connection = get_connection()
+
     try:
         cursor = connection.cursor()
+
         cursor.execute("""
             DELETE FROM health_records
             WHERE Health_ID = %s
         """, (health_id,))
+
         connection.commit()
+
     finally:
         cursor.close()
         connection.close()
-
 # =========================================================
 # ACTIVITIES QUERIES
 # =========================================================

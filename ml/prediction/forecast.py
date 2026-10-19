@@ -6,6 +6,13 @@ from ml.preparation.preparation import get_prepared_dataset
 
 
 # ==========================================================
+# CONFIGURATION
+# ==========================================================
+
+DEFAULT_FORECAST_DAYS = 30
+
+
+# ==========================================================
 # VALIDATION
 # ==========================================================
 
@@ -17,8 +24,7 @@ def validate_forecast_inputs(
     future_context,
 ):
     """
-    Validate forecasting inputs before any prediction
-    operation is performed.
+    Validate forecasting inputs before prediction.
     """
 
     if model is None:
@@ -26,18 +32,12 @@ def validate_forecast_inputs(
             'Forecast model is required.'
         )
 
-    if not hasattr(
-        model,
-        'predict',
-    ):
+    if not hasattr(model, 'predict'):
         raise TypeError(
             'Forecast model must provide a predict() method.'
         )
 
-    if not isinstance(
-        feature_names,
-        list,
-    ):
+    if not isinstance(feature_names, list):
         raise TypeError(
             'Forecast feature names must be a list.'
         )
@@ -59,32 +59,18 @@ def validate_forecast_inputs(
     if forbidden_features:
         raise ValueError(
             'Forbidden forecast features detected: '
-            + ', '.join(
-                forbidden_features
-            )
+            + ', '.join(forbidden_features)
         )
 
-    if isinstance(
-        start_date,
-        datetime,
-    ):
+    if isinstance(start_date, datetime):
         start_date = start_date.date()
 
-    if not isinstance(
-        start_date,
-        date,
-    ):
+    if not isinstance(start_date, date):
         raise TypeError(
             'Forecast start_date must be a date.'
         )
 
-    if isinstance(
-        days,
-        bool,
-    ) or not isinstance(
-        days,
-        int,
-    ):
+    if isinstance(days, bool) or not isinstance(days, int):
         raise TypeError(
             'Forecast days must be an integer.'
         )
@@ -95,11 +81,7 @@ def validate_forecast_inputs(
         )
 
     if future_context is not None:
-
-        if not isinstance(
-            future_context,
-            dict,
-        ):
+        if not isinstance(future_context, dict):
             raise TypeError(
                 'future_context must be a dictionary.'
             )
@@ -113,9 +95,9 @@ def validate_forecast_inputs(
 
 def load_forecast_history():
     """
-    Load and validate historical prepared data.
+    Load historical prepared data.
 
-    The returned list is a temporary in-memory copy.
+    The returned data is an in-memory copy.
     """
 
     historical_data = get_prepared_dataset()
@@ -131,7 +113,6 @@ def load_forecast_history():
     ]
 
     for row in history:
-
         if 'Date' not in row:
             raise ValueError(
                 'Historical row contains no Date field.'
@@ -145,6 +126,49 @@ def load_forecast_history():
 
 
 # ==========================================================
+# FUTURE CONTEXT
+# ==========================================================
+
+def get_future_context_for_date(
+    future_context,
+    current_date,
+):
+    """
+    Return validated known future context for a date.
+    """
+
+    context = future_context.get(
+        current_date,
+        {},
+    )
+
+    if context is None:
+        context = {}
+
+    if not isinstance(context, dict):
+        raise TypeError(
+            'Future context for a date must be a dictionary.'
+        )
+
+    if 'Expense_Total' in context:
+        if context['Expense_Total'] is not None:
+            raise ValueError(
+                'future_context cannot contain actual '
+                'Expense_Total for the forecast date.'
+            )
+
+    if any(
+        key.startswith('Target_')
+        for key in context
+    ):
+        raise ValueError(
+            'future_context cannot contain Target_* values.'
+        )
+
+    return dict(context)
+
+
+# ==========================================================
 # FUTURE ROW
 # ==========================================================
 
@@ -153,99 +177,43 @@ def create_future_row(
     context,
 ):
     """
-    Create the base row for one future date.
+    Create a temporary future row.
 
-    No actual target-day outcome is inserted.
+    This row contains only known contextual information.
+    Actual target-day expense is never supplied.
     """
 
     row = {
-        'Date':
-            current_date,
+        'Date': current_date,
 
-        'Day_Type':
-            None,
+        'Day_Type': None,
+        'Work_Status': None,
+        'Health_Impact': None,
+        'Travel': None,
+        'Special_Event': None,
 
-        'Work_Status':
-            None,
+        'Stress_Level': 0.0,
+        'Notes': None,
+        'Sleep_Hours': 0.0,
 
-        'Health_Impact':
-            None,
+        'Social_Activity': None,
+        'Location': None,
 
-        'Travel':
-            None,
+        'Expense_Total': 0.0,
+        'Expense_Count': 0,
 
-        'Special_Event':
-            None,
+        'Income_Total': 0.0,
+        'Income_Count': 0,
 
-        'Stress_Level':
-            0.0,
-
-        'Notes':
-            None,
-
-        'Sleep_Hours':
-            0.0,
-
-        'Social_Activity':
-            None,
-
-        'Location':
-            None,
-
-        'Expense_Total':
-            0.0,
-
-        'Expense_Count':
-            0,
-
-        'Income_Total':
-            0.0,
-
-        'Income_Count':
-            0,
-
-        'Event_Count':
-            0,
+        'Event_Count': 0,
     }
 
     if context:
+        row.update(context)
 
-        if not isinstance(
-            context,
-            dict,
-        ):
-            raise TypeError(
-                'Future context for a date must be a dictionary.'
-            )
-
-        row.update(
-            context
-        )
-
-    # ------------------------------------------------------
-    # The target-day actual expense must never be supplied
-    # by future context.
-    # ------------------------------------------------------
-
-    if (
-        'Expense_Total' in context
-        and context['Expense_Total'] is not None
-    ):
-        raise ValueError(
-            'future_context cannot contain actual '
-            'Expense_Total for the forecast date.'
-        )
-
-    if (
-        'Target_Expense_Total_1D' in context
-        or any(
-            key.startswith('Target_')
-            for key in context
-        )
-    ):
-        raise ValueError(
-            'future_context cannot contain Target_* values.'
-        )
+    # The actual future outcome is never allowed.
+    row['Expense_Total'] = 0.0
+    row['Expense_Count'] = 0
 
     return row
 
@@ -259,8 +227,8 @@ def build_forecast_vector(
     feature_names,
 ):
     """
-    Build the model input using the exact trained feature
-    order.
+    Build the model input using the exact trained
+    feature order.
     """
 
     vector = []
@@ -276,10 +244,7 @@ def build_forecast_vector(
             value = 0.0
 
         try:
-
-            numeric_value = float(
-                value
-            )
+            numeric_value = float(value)
 
         except (
             TypeError,
@@ -291,9 +256,7 @@ def build_forecast_vector(
                 'is not numeric.'
             ) from exc
 
-        if not math.isfinite(
-            numeric_value
-        ):
+        if not math.isfinite(numeric_value):
             raise ValueError(
                 f'Forecast feature "{feature_name}" '
                 'contains a non-finite value.'
@@ -323,10 +286,7 @@ def generate_forecast_prediction(
     )[0]
 
     try:
-
-        prediction = float(
-            prediction
-        )
+        prediction = float(prediction)
 
     except (
         TypeError,
@@ -337,16 +297,10 @@ def generate_forecast_prediction(
             'Forecast model produced a non-numeric prediction.'
         ) from exc
 
-    if not math.isfinite(
-        prediction
-    ):
+    if not math.isfinite(prediction):
         raise ValueError(
             'Forecast model produced a non-finite prediction.'
         )
-
-    # ------------------------------------------------------
-    # Expense predictions cannot be negative.
-    # ------------------------------------------------------
 
     return max(
         0.0,
@@ -355,7 +309,7 @@ def generate_forecast_prediction(
 
 
 # ==========================================================
-# EXPENSE FORECAST
+# FORECAST
 # ==========================================================
 
 def forecast_expenses(
@@ -368,25 +322,14 @@ def forecast_expenses(
     """
     Forecast expenses for consecutive future days.
 
-    Forecasting rules:
+    Important design rule:
 
-        1. Historical data is the model's memory.
-        2. The target day's actual expense is never used.
-        3. Known future contextual information may be used.
-        4. Earlier predictions become temporary history.
-        5. Temporary predictions are never written to the DB.
-        6. The model is never retrained during forecasting.
+        The model predicts T+1 from the latest known
+        information at T.
 
-    Returns:
-
-        [
-            {
-                'Date': date,
-                'Predicted_Expense': float,
-                'Features': {...}
-            },
-            ...
-        ]
+    Therefore the first forecast is generated from the
+    latest available historical row, not from an empty
+    artificial row representing the future day.
     """
 
     start_date = validate_forecast_inputs(
@@ -402,69 +345,121 @@ def forecast_expenses(
     if future_context is None:
         future_context = {}
 
+    # ------------------------------------------------------
+    # Find the latest real historical date.
+    # ------------------------------------------------------
+
+    last_historical_date = max(
+        row['Date']
+        for row in history
+    )
+
+    # ------------------------------------------------------
+    # The requested forecast must begin after the latest
+    # known historical date.
+    # ------------------------------------------------------
+
+    if start_date <= last_historical_date:
+        start_date = (
+            last_historical_date
+            + timedelta(days=1)
+        )
+
     results = []
 
-    current_date = start_date
+    forecast_date = start_date
 
     # ======================================================
     # FORECAST LOOP
     # ======================================================
 
-    for _ in range(
-        days
-    ):
+    for _ in range(days):
 
         # --------------------------------------------------
-        # Future context
-        # --------------------------------------------------
-
-        context = future_context.get(
-            current_date,
-            {},
-        )
-
-        # --------------------------------------------------
-        # Create target row
+        # The model's input date is the previous known date.
         #
-        # We deliberately do NOT copy an actual future
-        # database row into the target.
-        # --------------------------------------------------
-
-        target_row = create_future_row(
-            current_date=current_date,
-            context=context,
-        )
-
-        # --------------------------------------------------
-        # Historical rows strictly before target date
+        # For example:
         #
-        # This guarantees that the target day's actual
-        # outcome cannot leak into its own features.
+        # last real day = Aug 20
+        # prediction    = Aug 21
+        #
+        # The features are built from Aug 20 history.
         # --------------------------------------------------
+
+        previous_date = (
+            forecast_date
+            - timedelta(days=1)
+        )
 
         previous_rows = [
             row
             for row in history
-            if row['Date'] < current_date
+            if row['Date'] <= previous_date
         ]
 
         if not previous_rows:
             raise ValueError(
                 'No historical rows exist before '
-                f'forecast date: {current_date}'
+                f'forecast date: {forecast_date}'
             )
 
         # --------------------------------------------------
+        # Use the latest known row as the feature-engineering
+        # anchor.
+        # --------------------------------------------------
+
+        anchor_row = dict(
+            previous_rows[-1]
+        )
+
+        # --------------------------------------------------
+        # Known future context may be supplied for the
+        # forecast date.
+        # --------------------------------------------------
+
+        context = get_future_context_for_date(
+            future_context,
+            forecast_date,
+        )
+
+        # --------------------------------------------------
+        # Do NOT replace the historical anchor with an
+        # empty future row.
+        #
+        # Only known future contextual fields are applied.
+        # --------------------------------------------------
+
+        feature_row = dict(
+            anchor_row
+        )
+
+        feature_row['Date'] = forecast_date
+
+        for key, value in context.items():
+
+            if key in (
+                'Expense_Total',
+                'Expense_Count',
+                'Target_Expense_Total_1D',
+            ):
+                continue
+
+            feature_row[key] = value
+
+        # --------------------------------------------------
         # Feature engineering
+        #
+        # History contains only information known before
+        # the forecast date, plus previous predictions.
         # --------------------------------------------------
 
         features = build_feature_row(
-            target_row,
+            feature_row,
             previous_rows,
         )
 
         # --------------------------------------------------
-        # Model vector
+        # Build exact model vector.
         # --------------------------------------------------
 
         feature_vector = build_forecast_vector(
@@ -473,7 +468,7 @@ def forecast_expenses(
         )
 
         # --------------------------------------------------
-        # Prediction
+        # Prediction.
         # --------------------------------------------------
 
         prediction = generate_forecast_prediction(
@@ -482,15 +477,13 @@ def forecast_expenses(
         )
 
         # --------------------------------------------------
-        # Store result
+        # Store result.
         # --------------------------------------------------
 
         results.append({
-            'Date':
-                current_date,
+            'Date': forecast_date,
 
-            'Predicted_Expense':
-                prediction,
+            'Predicted_Expense': prediction,
 
             'Features': {
                 feature:
@@ -503,31 +496,37 @@ def forecast_expenses(
         })
 
         # --------------------------------------------------
-        # Recursive forecasting
+        # Recursive forecasting.
         #
-        # The prediction becomes historical information
-        # for later forecast dates.
+        # The prediction becomes temporary history for
+        # subsequent forecast days.
         #
-        # This row exists ONLY in memory.
+        # It is NEVER written to the database.
         # --------------------------------------------------
 
         predicted_row = dict(
-            target_row
+            feature_row
         )
 
-        predicted_row[
-            'Expense_Total'
-        ] = prediction
+        predicted_row['Date'] = forecast_date
+
+        predicted_row['Expense_Total'] = prediction
+
+        predicted_row['Expense_Count'] = (
+            1
+            if prediction > 0
+            else 0
+        )
 
         history.append(
             predicted_row
         )
 
         # --------------------------------------------------
-        # Next forecast date
+        # Next forecast date.
         # --------------------------------------------------
 
-        current_date += timedelta(
+        forecast_date += timedelta(
             days=1
         )
 

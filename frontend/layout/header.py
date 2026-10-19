@@ -29,7 +29,7 @@ def create_header(active_page='dashboard'):
 
     title = page_titles.get(
         active_page,
-        'Personal Finance AI',
+            active_page.replace('_', ' ').title(),
     )
 
     mobile_navigation = create_mobile_navigation()
@@ -87,7 +87,7 @@ def create_header(active_page='dashboard'):
                     )
 
                     ui.label(
-                        'Personal Finance AI'
+                        'Personal Behavior and Life Intelligence System'
                     ).classes(
                         'hidden sm:block '
                         'text-xs '

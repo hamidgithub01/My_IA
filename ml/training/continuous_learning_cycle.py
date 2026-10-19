@@ -15,6 +15,14 @@ from ml.training.continuous_learning import (
     run_continuous_learning_cycle,
 )
 
+from ml.training.train import (
+    train_target_model,
+)
+
+from ml.evaluation.evaluate import (
+    evaluate_model,
+)
+
 from ml.models.registry import (
     REGISTRY_VALID,
     save_registered_model,
@@ -121,6 +129,353 @@ def _validate_registry_result(
         raise ValueError(
             f'{operation} failed: {result}'
         )
+
+
+# ==========================================================
+# VERSION GENERATION
+# ==========================================================
+
+def _next_model_version(
+    current_model_version,
+):
+    """
+    Generate the next patch version for a candidate model.
+
+    Examples:
+
+        v1.0.0 -> v1.0.1
+        v1.2.3 -> v1.2.4
+
+    The existing major/minor version is preserved.
+    """
+
+    if current_model_version is None:
+
+        return 'v1.0.0'
+
+    version = str(
+        current_model_version
+    )
+
+    if not version.startswith(
+        'v'
+    ):
+
+        raise ValueError(
+            'current_model_version must start with "v".'
+        )
+
+    parts = version[1:].split(
+        '.'
+    )
+
+    if len(parts) != 3:
+
+        raise ValueError(
+            'current_model_version must use '
+            'semantic version format: vX.Y.Z'
+        )
+
+    try:
+
+        major = int(
+            parts[0]
+        )
+
+        minor = int(
+            parts[1]
+        )
+
+        patch = int(
+            parts[2]
+        )
+
+    except ValueError as exc:
+
+        raise ValueError(
+            'current_model_version must use '
+            'semantic version format: vX.Y.Z'
+        ) from exc
+
+    if (
+        major < 0
+        or minor < 0
+        or patch < 0
+    ):
+
+        raise ValueError(
+            'current_model_version cannot contain '
+            'negative version numbers.'
+        )
+
+    return (
+        f'v{major}.'
+        f'{minor}.'
+        f'{patch + 1}'
+    )
+
+
+# ==========================================================
+# BUILD CANDIDATE METADATA
+# ==========================================================
+
+def _build_candidate_metadata(
+    training_result,
+    candidate_version,
+):
+    """
+    Build registry metadata directly from the real
+    training result.
+
+    No model configuration is recreated manually here.
+    """
+
+    required_fields = [
+        'target_name',
+        'target_task',
+        'target_type',
+        'model_type',
+        'algorithm',
+        'feature_names',
+    ]
+
+    missing_fields = [
+        field
+        for field in required_fields
+        if field not in training_result
+    ]
+
+    if missing_fields:
+
+        raise ValueError(
+            'Training result is missing required metadata '
+            f'fields: {missing_fields}'
+        )
+
+    return {
+
+        'target_name':
+            training_result[
+                'target_name'
+            ],
+
+        'target_task':
+            training_result[
+                'target_task'
+            ],
+
+        'target_type':
+            training_result[
+                'target_type'
+            ],
+
+        'model_type':
+            training_result[
+                'model_type'
+            ],
+
+        'algorithm':
+            training_result[
+                'algorithm'
+            ],
+
+        'feature_names':
+            training_result[
+                'feature_names'
+            ],
+
+        'version':
+            candidate_version,
+    }
+
+
+# ==========================================================
+# TRAIN + EVALUATE + EXECUTE ONE REAL CYCLE
+# ==========================================================
+
+def run_continuous_learning_training_cycle(
+    target_name,
+    current_result,
+    primary_metric,
+    direction,
+    minimum_improvement=0.0,
+    minimum_sample_count=1,
+    current_model_version=None,
+    registry_dir=None,
+):
+    """
+    Execute one real continuous-learning training cycle.
+
+    Architecture:
+
+        train_target_model()
+                ↓
+        candidate training_result
+                ↓
+        evaluate_model()
+                ↓
+        candidate evaluation
+                ↓
+        execute_continuous_learning_cycle()
+                ↓
+        save / activate
+
+    IMPORTANT:
+
+        This function does NOT recreate the training pipeline.
+
+        It reuses the existing training and evaluation
+        components.
+
+        It also does NOT make the accept/reject decision
+        itself.
+
+        The decision remains owned by
+        run_continuous_learning_cycle().
+    """
+
+    if not target_name:
+
+        raise ValueError(
+            'target_name is required.'
+        )
+
+    if not primary_metric:
+
+        raise ValueError(
+            'primary_metric is required.'
+        )
+
+    # ======================================================
+    # 1. TRAIN CANDIDATE
+    # ======================================================
+
+    training_result = train_target_model(
+        target_name
+    )
+
+    if not isinstance(
+        training_result,
+        dict,
+    ):
+
+        raise ValueError(
+            'train_target_model() returned an invalid result.'
+        )
+
+    if 'model' not in training_result:
+
+        raise ValueError(
+            'Training result does not contain a model.'
+        )
+
+    candidate_model = training_result[
+        'model'
+    ]
+
+    _validate_model(
+        candidate_model
+    )
+
+    # ======================================================
+    # 2. EVALUATE CANDIDATE
+    # ======================================================
+
+    candidate_result = None
+
+    try:
+
+        candidate_result = evaluate_model(
+            training_result=training_result,
+        )
+
+    except ValueError as exc:
+
+        message = str(
+            exc
+        )
+
+        evaluation_unavailable_messages = (
+            'No test features are available',
+            'No test targets are available',
+            'Test dataset contains fewer rows',
+        )
+
+        if not message.startswith(
+            evaluation_unavailable_messages
+        ):
+
+            raise
+
+        # --------------------------------------------------
+        # Evaluation is unavailable.
+        #
+        # This is intentionally represented as an explicit
+        # insufficient-data result rather than being treated
+        # as an invalid candidate.
+        # --------------------------------------------------
+
+        candidate_result = {
+
+            'status':
+                CONTINUOUS_LEARNING_INSUFFICIENT_DATA,
+
+            'evaluation_valid':
+                False,
+
+            'evaluation_status':
+                CONTINUOUS_LEARNING_INSUFFICIENT_DATA,
+
+            'sample_count':
+                training_result.get(
+                    'test_rows',
+                    0,
+                ),
+        }
+
+    # ======================================================
+    # 3. DETERMINE CANDIDATE VERSION
+    # ======================================================
+
+    candidate_model_version = _next_model_version(
+        current_model_version
+    )
+
+    # ======================================================
+    # 4. BUILD CANDIDATE METADATA
+    # ======================================================
+
+    candidate_metadata = _build_candidate_metadata(
+        training_result=training_result,
+        candidate_version=candidate_model_version,
+    )
+
+    # ======================================================
+    # 5. EXECUTE DECISION + REGISTRY OPERATIONS
+    # ======================================================
+
+    return execute_continuous_learning_cycle(
+
+        current_result=current_result,
+
+        candidate_result=candidate_result,
+
+        candidate_model=candidate_model,
+
+        candidate_metadata=candidate_metadata,
+
+        primary_metric=primary_metric,
+
+        direction=direction,
+
+        minimum_improvement=minimum_improvement,
+
+        minimum_sample_count=minimum_sample_count,
+
+        current_model_version=current_model_version,
+
+        registry_dir=registry_dir,
+    )
 
 
 # ==========================================================

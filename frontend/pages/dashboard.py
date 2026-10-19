@@ -1,3 +1,6 @@
+
+from datetime import date, timedelta
+
 from nicegui import ui
 
 from frontend.components import (
@@ -8,40 +11,55 @@ from frontend.components import (
     compact_prediction_card,
     empty_chart,
     metric_card,
-    prediction_summary,
     recommendation_list,
     section_title,
 )
 
+from frontend.services.analysis_service import (
+    get_analysis_data,
+)
+
+from frontend.services.prediction_service import (
+    generate_expense_forecast,
+)
+
+
+# ==========================================================
+# PAGE
+# ==========================================================
 
 def dashboard_page():
     """
     Render the main Personal Finance AI dashboard.
 
-    The dashboard is UI-first.
-    Backend and ML data will be connected later
-    through the frontend services layer.
+    The dashboard consumes real data through the frontend
+    service layer.
     """
+
+    analysis = get_analysis_data()
+
+    forecast_result = _load_forecast()
+
+    summary = analysis.get(
+        'summary',
+        {},
+    )
+
+    forecast = forecast_result.get(
+        'forecast',
+        [],
+    )
 
     with ui.column().classes(
         'w-full max-w-7xl mx-auto gap-6'
     ):
 
-        # ==================================================
-        # PAGE HEADER
-        # ==================================================
-
         _page_header()
 
-        # ==================================================
-        # KEY METRICS
-        # ==================================================
-
-        _key_metrics()
-
-        # ==================================================
-        # MAIN INTELLIGENCE AREA
-        # ==================================================
+        _key_metrics(
+            summary=summary,
+            forecast=forecast,
+        )
 
         with ui.grid().classes(
             'w-full '
@@ -50,25 +68,21 @@ def dashboard_page():
             'gap-6'
         ):
 
-            _forecast_section()
+            _forecast_section(
+                forecast=forecast,
+            )
 
-            _ai_status_section()
+            _ai_status_section(
+                forecast_result=forecast_result,
+            )
 
-        # ==================================================
-        # UPCOMING PREDICTIONS
-        # ==================================================
+        _upcoming_predictions(
+            forecast=forecast,
+        )
 
-        _upcoming_predictions()
-
-        # ==================================================
-        # FORECAST HORIZONS
-        # ==================================================
-
-        _forecast_horizons()
-
-        # ==================================================
-        # INSIGHTS
-        # ==================================================
+        _forecast_horizons(
+            forecast=forecast,
+        )
 
         with ui.grid().classes(
             'w-full '
@@ -80,6 +94,31 @@ def dashboard_page():
             _alerts_section()
 
             _recommendations_section()
+
+
+# ==========================================================
+# FORECAST LOADING
+# ==========================================================
+
+def _load_forecast():
+    """
+    Load the real 30-day expense forecast.
+
+    Forecast errors are returned to the page instead of
+    breaking the dashboard.
+    """
+
+    try:
+        return generate_expense_forecast(
+            days=30
+        )
+
+    except Exception as exc:
+        return {
+            'status': 'invalid',
+            'forecast': [],
+            'error': str(exc),
+        }
 
 
 # ==========================================================
@@ -138,7 +177,21 @@ def _page_header():
 # KEY METRICS
 # ==========================================================
 
-def _key_metrics():
+def _key_metrics(
+    *,
+    summary,
+    forecast,
+):
+
+    today_expense = _get_today_expense()
+
+    next_7 = _forecast_total(
+        forecast[:7]
+    )
+
+    next_30 = _forecast_total(
+        forecast[:30]
+    )
 
     with ui.grid().classes(
         'w-full '
@@ -150,39 +203,84 @@ def _key_metrics():
 
         metric_card(
             title='Today',
-            value='—',
+            value=_money(today_expense),
             subtitle='Actual spending',
             icon='today',
         )
 
         metric_card(
             title='Next 7 Days',
-            value='—',
+            value=_money(next_7),
             subtitle='Predicted spending',
             icon='calendar_view_week',
         )
 
         metric_card(
             title='Next 30 Days',
-            value='—',
+            value=_money(next_30),
             subtitle='Forecast horizon',
             icon='date_range',
         )
 
         metric_card(
-            title='Reliability',
-            value='—',
-            subtitle='Prediction reliability',
-            icon='verified',
-            status='neutral',
+            title='Balance',
+            value=_money(
+                summary.get(
+                    'balance',
+                    0.0,
+                )
+            ),
+            subtitle='Income minus expenses',
+            icon='account_balance_wallet',
         )
+
+
+# ==========================================================
+# TODAY EXPENSE
+# ==========================================================
+
+def _get_today_expense():
+
+    try:
+        analysis = get_analysis_data()
+
+        recent_expenses = analysis.get(
+            'recent_expenses',
+            [],
+        )
+
+        today = date.today()
+
+        total = 0.0
+
+        for expense in recent_expenses:
+
+            expense_date = expense.get(
+                'Date'
+            )
+
+            if expense_date == today:
+                amount = expense.get(
+                    'Amount'
+                )
+
+                if amount is not None:
+                    total += float(amount)
+
+        return total
+
+    except Exception:
+        return 0.0
 
 
 # ==========================================================
 # FORECAST SECTION
 # ==========================================================
 
-def _forecast_section():
+def _forecast_section(
+    *,
+    forecast,
+):
 
     with app_card(
         classes='xl:col-span-2'
@@ -219,22 +317,86 @@ def _forecast_section():
             'my-5'
         )
 
-        empty_chart(
-            title='Forecast chart',
-            subtitle=(
-                'Forecast data will appear here '
-                'when predictions are available.'
-            ),
-            icon='show_chart',
-            height='320px',
-        )
+        if not forecast:
+
+            empty_chart(
+                title='Forecast unavailable',
+                subtitle=(
+                    'A valid prediction could not be generated.'
+                ),
+                icon='show_chart',
+                height='320px',
+            )
+
+            return
+
+        with ui.column().classes(
+            'w-full gap-3'
+        ):
+
+            for row in forecast:
+
+                forecast_date = row.get(
+                    'Date'
+                )
+
+                predicted = row.get(
+                    'Predicted_Expense',
+                    0.0,
+                )
+
+                with ui.row().classes(
+                    'w-full '
+                    'items-center '
+                    'justify-between '
+                    'gap-4'
+                ):
+
+                    ui.label(
+                        _format_date(
+                            forecast_date
+                        )
+                    ).classes(
+                        'text-sm '
+                        'text-secondary-app'
+                    )
+
+                    ui.linear_progress(
+                        value=_forecast_bar_value(
+                            predicted,
+                            forecast,
+                        )
+                    ).props(
+                        'rounded'
+                    ).classes(
+                        'flex-1'
+                    )
+
+                    ui.label(
+                        _money(predicted)
+                    ).classes(
+                        'text-sm '
+                        'font-semibold '
+                        'text-primary-app '
+                        'w-24 '
+                        'text-right'
+                    )
 
 
 # ==========================================================
 # AI STATUS
 # ==========================================================
 
-def _ai_status_section():
+def _ai_status_section(
+    *,
+    forecast_result,
+):
+
+    forecast_available = bool(
+        forecast_result.get(
+            'forecast'
+        )
+    )
 
     with app_card():
 
@@ -253,40 +415,58 @@ def _ai_status_section():
         _status_row(
             icon='auto_awesome',
             label='Predictions',
-            value='Available',
+            value=(
+                'Connected'
+                if forecast_available
+                else 'Unavailable'
+            ),
+            status=(
+                'success'
+                if forecast_available
+                else 'warning'
+            ),
+        )
+
+        _status_row(
+            icon='analytics',
+            label='Analysis',
+            value='Connected',
+            status='success',
+        )
+
+        _status_row(
+            icon='account_balance',
+            label='Financial data',
+            value='Connected',
             status='success',
         )
 
         _status_row(
             icon='verified',
             label='Reliability',
-            value='Pending data',
+            value='Developing',
             status='warning',
-        )
-
-        _status_row(
-            icon='analytics',
-            label='Analysis',
-            value='Available',
-            status='success',
-        )
-
-        _status_row(
-            icon='notifications_none',
-            label='Alerts',
-            value='Not available',
-            status='neutral',
         )
 
         ui.separator().classes(
             'my-4'
         )
 
-        badge(
-            'AI system operational',
-            variant='success',
-            icon='check_circle',
-        )
+        if forecast_available:
+
+            badge(
+                'AI prediction pipeline connected',
+                variant='success',
+                icon='check_circle',
+            )
+
+        else:
+
+            badge(
+                'Prediction pipeline unavailable',
+                variant='warning',
+                icon='warning',
+            )
 
 
 # ==========================================================
@@ -345,7 +525,10 @@ def _status_row(
 # UPCOMING PREDICTIONS
 # ==========================================================
 
-def _upcoming_predictions():
+def _upcoming_predictions(
+    *,
+    forecast,
+):
 
     with app_card():
 
@@ -383,20 +566,18 @@ def _upcoming_predictions():
             'gap-3'
         ):
 
-            days = [
-                'Tomorrow',
-                'Day 2',
-                'Day 3',
-                'Day 4',
-                'Day 5',
-                'Day 6',
-                'Day 7',
-            ]
+            for row in forecast[:7]:
 
-            for day in days:
                 compact_prediction_card(
-                    label=day,
-                    value='—',
+                    label=_format_date(
+                        row.get('Date')
+                    ),
+                    value=_money(
+                        row.get(
+                            'Predicted_Expense',
+                            0.0,
+                        )
+                    ),
                     icon='auto_awesome',
                 )
 
@@ -405,7 +586,10 @@ def _upcoming_predictions():
 # FORECAST HORIZONS
 # ==========================================================
 
-def _forecast_horizons():
+def _forecast_horizons(
+    *,
+    forecast,
+):
 
     with ui.column().classes(
         'w-full gap-4'
@@ -428,18 +612,21 @@ def _forecast_horizons():
                 title='Days 1–7',
                 subtitle='Daily forecasts',
                 icon='calendar_today',
+                forecast=forecast[:7],
             )
 
             _horizon_card(
                 title='Days 8–15',
                 subtitle='Extended forecast',
                 icon='date_range',
+                forecast=forecast[7:15],
             )
 
             _horizon_card(
                 title='Days 16–30',
                 subtitle='Longer forecast horizon',
                 icon='calendar_month',
+                forecast=forecast[15:30],
             )
 
 
@@ -452,6 +639,7 @@ def _horizon_card(
     title,
     subtitle,
     icon,
+    forecast,
 ):
 
     with app_card():
@@ -493,7 +681,11 @@ def _horizon_card(
             ):
 
                 ui.label(
-                    '—'
+                    _money(
+                        _forecast_total(
+                            forecast
+                        )
+                    )
                 ).classes(
                     'text-2xl '
                     'font-bold '
@@ -501,15 +693,21 @@ def _horizon_card(
                 )
 
                 ui.label(
-                    'Predicted spending'
+                    f'{len(forecast)} forecast days'
                 ).classes(
                     'text-xs '
                     'text-muted-app'
                 )
 
             badge(
-                'Pending',
-                variant='neutral',
+                'Available'
+                if forecast
+                else 'Unavailable',
+                variant=(
+                    'success'
+                    if forecast
+                    else 'neutral'
+                ),
             )
 
 
@@ -537,8 +735,8 @@ def _alerts_section():
             [],
             empty_title='No alerts yet',
             empty_message=(
-                'Important financial alerts will appear '
-                'here when the alert system has data.'
+                'The alert engine is not connected yet. '
+                'No alerts are being fabricated.'
             ),
         )
 
@@ -554,7 +752,7 @@ def _recommendations_section():
         card_header(
             title='Recommendations',
             subtitle=(
-                'Suggestions generated from your financial data.'
+                'Suggestions generated from your data.'
             ),
             icon='lightbulb_outline',
         )
@@ -567,8 +765,7 @@ def _recommendations_section():
             [],
             empty_title='No recommendations yet',
             empty_message=(
-                'Personalized recommendations will appear '
-                'here when the intelligence system has data.'
+                'The recommendation engine is not connected yet.'
             ),
         )
 
@@ -583,3 +780,83 @@ def _recommendations_section():
         ).classes(
             'mt-4'
         )
+
+
+# ==========================================================
+# HELPERS
+# ==========================================================
+
+def _forecast_total(
+    forecast,
+):
+
+    total = 0.0
+
+    for row in forecast:
+
+        value = row.get(
+            'Predicted_Expense'
+        )
+
+        if value is not None:
+            total += float(value)
+
+    return total
+
+
+def _forecast_bar_value(
+    value,
+    forecast,
+):
+
+    maximum = max(
+        (
+            float(
+                row.get(
+                    'Predicted_Expense',
+                    0.0,
+                )
+            )
+            for row in forecast
+        ),
+        default=0.0,
+    )
+
+    if maximum <= 0:
+        return 0.0
+
+    return min(
+        1.0,
+        float(value) / maximum,
+    )
+
+
+def _money(
+    value,
+):
+
+    try:
+        return f'{float(value):,.2f}'
+    except (
+        TypeError,
+        ValueError,
+    ):
+        return '0.00'
+
+
+def _format_date(
+    value,
+):
+
+    if value is None:
+        return '—'
+
+    if hasattr(
+        value,
+        'strftime',
+    ):
+        return value.strftime(
+            '%d %b'
+        )
+
+    return str(value)
