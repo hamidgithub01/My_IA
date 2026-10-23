@@ -79,6 +79,30 @@ def _to_date(value):
             return None
 
     return None
+# ============================================================
+
+def _resolve_completed_through_date(value=None):
+    """
+    Return the last date allowed to contribute actual targets.
+
+    By default, the current day is excluded because it may
+    still be in progress.
+
+    An explicit date can be supplied for reproducible tests.
+    """
+
+    if value is None:
+        return date.today() - timedelta(days=1)
+
+    resolved_date = _to_date(value)
+
+    if resolved_date is None:
+        raise ValueError(
+            'completed_through_date must be a valid date.'
+        )
+
+    return resolved_date
+
 
 
 # ============================================================
@@ -553,30 +577,27 @@ def create_period_targets(
 # TARGET DATASET BUILDER
 # ============================================================
 
+
 def build_target_dataset(
     prepared_data=None,
+    completed_through_date=None,
 ):
     """
     Build the future-oriented Target Dataset.
 
     Detailed daily targets:
-
         T+1 ... T+7
 
     Period targets:
-
         T+8 ... T+15
         T+16 ... T+30
         T+1 ... T+30
 
-    IMPORTANT:
+    All horizons are based on real calendar dates.
+    Future targets are generated only through
+    completed_through_date.
 
-        All horizons are based on real calendar dates.
-
-        Row position is never used to determine the future
-        date.
-
-    Incomplete future periods receive NaN targets.
+    Incomplete or future targets receive NaN.
     """
 
     if prepared_data is None:
@@ -585,9 +606,10 @@ def build_target_dataset(
     if not prepared_data:
         return []
 
-    prepared_data = sorted(
-        prepared_data,
-        key=lambda row: row['Date'],
+    completed_through_date = (
+        _resolve_completed_through_date(
+            completed_through_date
+        )
     )
 
     target_dataset = []
@@ -619,6 +641,20 @@ def build_target_dataset(
                 future_day,
             )
 
+            # Reject invalid or not-yet-completed dates
+            # BEFORE creating the targets.
+            if future_row is not None:
+
+                future_date = _to_date(
+                    future_row.get('Date')
+                )
+
+                if (
+                    future_date is None
+                    or future_date > completed_through_date
+                ):
+                    future_row = None
+
             targets.update(
                 create_daily_targets(
                     future_row,
@@ -649,7 +685,19 @@ def build_target_dataset(
                 + 1
             )
 
-            if len(future_rows) == expected_days:
+            # A period is valid only if every calendar day
+            # exists and is on or before the completion date.
+            if (
+                len(future_rows) == expected_days
+                and all(
+                    (
+                        _to_date(row.get('Date')) is not None
+                        and _to_date(row.get('Date'))
+                        <= completed_through_date
+                    )
+                    for row in future_rows
+                )
+            ):
 
                 targets.update(
                     create_period_targets(
@@ -674,6 +722,7 @@ def build_target_dataset(
         )
 
     return target_dataset
+
 
 
 # ============================================================

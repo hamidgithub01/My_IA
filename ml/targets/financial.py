@@ -1,3 +1,4 @@
+from math import isfinite
 
 from ml.targets.common import (
     DAILY_HORIZONS,
@@ -10,6 +11,7 @@ from ml.targets.common import (
 # HIGH EXPENSE
 # =========================================================
 
+
 def _calculate_high_expense(
     expense_total,
     historical_average_expense,
@@ -17,19 +19,38 @@ def _calculate_high_expense(
     """
     Determine whether an expense is unusually high.
 
-    A high expense is defined as an expense that is
-    at least 50% above the historical average daily
-    expense.
+    A high expense is at least 50% above the historical
+    average daily expense.
 
-    If no historical baseline is available, the result
-    is 0.
+    Return NaN when a valid historical baseline
+    is unavailable.
     """
 
+    if expense_total is None:
+        return float('nan')
+
+    if historical_average_expense is None:
+        return float('nan')
+
+    try:
+        expense_total = float(expense_total)
+        historical_average_expense = float(
+            historical_average_expense
+        )
+    except (TypeError, ValueError):
+        return float('nan')
+
     if (
-        expense_total <= 0
-        or historical_average_expense <= 0
+        not isfinite(expense_total)
+        or not isfinite(historical_average_expense)
     ):
-        return 0
+        return float('nan')
+
+    if historical_average_expense <= 0:
+        return float('nan')
+
+    if expense_total < 0:
+        return float('nan')
 
     return int(
         expense_total
@@ -41,31 +62,46 @@ def _calculate_high_expense(
 # HISTORICAL EXPENSE BASELINE
 # =========================================================
 
+
+
 def _get_historical_average_expense(
     previous_rows,
 ):
     """
     Calculate the historical average daily expense.
 
-    Only previous rows supplied to the function are used.
+    Only valid historical Expense_Total values are used.
+    Explicit zero values remain valid observations.
     """
 
     if not previous_rows:
-        return 0.0
+        return None
 
-    historical_expenses = [
+    historical_expenses = []
 
-        to_float(
-            row.get('Expense_Total')
-        )
+    for row in previous_rows:
+        value = row.get('Expense_Total')
 
-        for row in previous_rows
-    ]
+        if value is None:
+            continue
 
-    return (
-        sum(historical_expenses)
-        / len(historical_expenses)
-    )
+        try:
+            expense = float(value)
+        except (TypeError, ValueError):
+            continue
+
+        if not isfinite(expense):
+            continue
+
+        if expense < 0:
+            continue
+
+        historical_expenses.append(expense)
+
+    if not historical_expenses:
+        return None
+
+    return sum(historical_expenses) / len(historical_expenses)
 
 
 # =========================================================
@@ -179,6 +215,7 @@ def create_financial_targets_daily(
 # PERIOD FINANCIAL TARGETS
 # =========================================================
 
+
 def create_financial_targets_period(
     future_rows,
     horizon_name,
@@ -188,14 +225,14 @@ def create_financial_targets_period(
     Create financial targets for a future period.
 
     Period targets summarize the supplied future rows.
+    High expense is NaN when no valid historical baseline
+    is available.
     """
 
     previous_rows = previous_rows or []
 
     if not future_rows:
-        return _empty_targets(
-            horizon_name
-        )
+        return _empty_targets(horizon_name)
 
     expense_total = 0.0
     income_total = 0.0
@@ -204,17 +241,12 @@ def create_financial_targets_period(
     income_days = 0
 
     for row in future_rows:
-
         daily_expense = to_float(
-            row.get(
-                'Expense_Total'
-            )
+            row.get('Expense_Total')
         )
 
         daily_income = to_float(
-            row.get(
-                'Income_Total'
-            )
+            row.get('Income_Total')
         )
 
         expense_total += daily_expense
@@ -226,10 +258,7 @@ def create_financial_targets_period(
         if daily_income > 0:
             income_days += 1
 
-    balance = (
-        income_total
-        - expense_total
-    )
+    balance = income_total - expense_total
 
     historical_average_expense = (
         _get_historical_average_expense(
@@ -237,22 +266,28 @@ def create_financial_targets_period(
         )
     )
 
-    high_expense = int(
-        any(
-            _calculate_high_expense(
-                to_float(
-                    row.get(
-                        'Expense_Total'
-                    )
-                ),
-                historical_average_expense,
-            )
-            for row in future_rows
+    high_expense_values = [
+        _calculate_high_expense(
+            to_float(row.get('Expense_Total')),
+            historical_average_expense,
         )
-    )
+        for row in future_rows
+    ]
+
+    # If the historical baseline is unavailable, the
+    # period's high-expense classification is unknown.
+    if (
+        historical_average_expense is None
+        or not isfinite(historical_average_expense)
+        or historical_average_expense <= 0
+    ):
+        high_expense = float('nan')
+    else:
+        high_expense = int(
+            any(value == 1 for value in high_expense_values)
+        )
 
     return {
-
         f'Target_Expense_Total_{horizon_name}':
             expense_total,
 
