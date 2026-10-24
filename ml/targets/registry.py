@@ -83,6 +83,10 @@ BINARY_CLASSIFICATION_TARGET_FAMILIES = {
 
 # Health
 'Target_Health_Problem',
+'Target_Health_Status_Good',
+'Target_Health_Status_Normal',
+'Target_Health_Status_Tired',
+'Target_Health_Status_Sick',
 'Target_High_Health_Severity',
 'Target_Low_Energy',
 'Target_Significant_Health_Day',

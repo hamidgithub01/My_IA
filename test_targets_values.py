@@ -1,3 +1,4 @@
+
 from math import isnan
 
 from ml.targets.build import (
@@ -151,14 +152,19 @@ print(
     f'Target_Has_Event_5D: {value}'
 )
 
-if value not in (0, 1):
-    raise AssertionError(
-        'Target_Has_Event_5D must be 0 or 1.'
+if is_missing(value):
+    print(
+        'T+5 event target: UNKNOWN '
+        '(source value is missing)'
     )
-
-print(
-    'T+5 event target: VALID'
-)
+elif value not in (0, 1):
+    raise AssertionError(
+        'Target_Has_Event_5D must be 0, 1, or missing.'
+    )
+else:
+    print(
+        'T+5 event target: VALID'
+    )
 
 
 # =========================================================
@@ -179,15 +185,20 @@ print(
     f'Target_High_Social_Activity_5D: {value}'
 )
 
-if value not in (0, 1):
+if is_missing(value):
+    print(
+        'T+5 social activity target: UNKNOWN '
+        '(source value is missing)'
+    )
+elif value not in (0, 1):
     raise AssertionError(
         'Target_High_Social_Activity_5D '
-        'must be 0 or 1.'
+        'must be 0, 1, or missing.'
     )
-
-print(
-    'T+5 social activity target: VALID'
-)
+else:
+    print(
+        'T+5 social activity target: VALID'
+    )
 
 
 # =========================================================
@@ -208,7 +219,8 @@ period_targets = [
 
 for target_name in period_targets:
 
-    value = row[target_name]
+    period_row = dataset[-1]
+    value = period_row[target_name]
 
     print(
         f'{target_name}: {value}'

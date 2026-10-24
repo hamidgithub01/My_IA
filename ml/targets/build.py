@@ -409,6 +409,18 @@ def _nan_targets(horizon_name):
 
         f'Target_Significant_Health_Day_{horizon_name}':
             nan,
+        # Health Status
+        f'Target_Health_Status_Good_{horizon_name}':
+            nan,
+
+        f'Target_Health_Status_Normal_{horizon_name}':
+            nan,
+
+        f'Target_Health_Status_Tired_{horizon_name}':
+            nan,
+
+        f'Target_Health_Status_Sick_{horizon_name}':
+            nan,
 
         # Location
         f'Target_Has_Location_{horizon_name}':
@@ -879,8 +891,23 @@ def validate_target_dataset(
 
 
 # ============================================================
-# DEBUG SUMMARY
-# ============================================================
+
+def _get_horizon_columns(columns, horizon):
+    """
+    Return columns belonging to exactly one horizon.
+
+    Prevent 16_30D targets from being counted again under 30D.
+    """
+    return [
+        column
+        for column in columns
+        if column.endswith(f'_{horizon}')
+        and not (
+            horizon == '30D'
+            and column.endswith('_16_30D')
+        )
+    ]
+
 
 def print_target_summary(
     target_dataset,
@@ -890,11 +917,7 @@ def print_target_summary(
     """
 
     if not target_dataset:
-
-        print(
-            'Target dataset is empty.'
-        )
-
+        print('Target dataset is empty.')
         return
 
     columns = [
@@ -904,38 +927,24 @@ def print_target_summary(
     ]
 
     print()
-    print(
-        '========== TARGET SUMMARY =========='
-    )
+    print('========== TARGET SUMMARY ==========')
 
-    print(
-        f'Total rows: '
-        f'{len(target_dataset)}'
-    )
-
-    print(
-        f'Total target columns: '
-        f'{len(columns)}'
-    )
+    print(f'Total rows: {len(target_dataset)}')
+    print(f'Total target columns: {len(columns)}')
 
     # --------------------------------------------------------
     # Daily targets
     # --------------------------------------------------------
 
     print()
-    print(
-        '========== DAILY TARGETS =========='
-    )
+    print('========== DAILY TARGETS ==========')
 
     for horizon in DAILY_HORIZONS:
 
-        horizon_columns = [
-            column
-            for column in columns
-            if column.endswith(
-                f'_{horizon}'
-            )
-        ]
+        horizon_columns = _get_horizon_columns(
+            columns,
+            horizon,
+        )
 
         if not horizon_columns:
             continue
@@ -956,14 +965,8 @@ def print_target_summary(
                 for value in values
             )
 
-            available_values += (
-                available
-            )
-
-            missing_values += (
-                len(values)
-                - available
-            )
+            available_values += available
+            missing_values += len(values) - available
 
         print(
             f'{horizon}: '
@@ -977,19 +980,14 @@ def print_target_summary(
     # --------------------------------------------------------
 
     print()
-    print(
-        '========== PERIOD TARGETS =========='
-    )
+    print('========== PERIOD TARGETS ==========')
 
     for horizon in PERIOD_HORIZONS:
 
-        horizon_columns = [
-            column
-            for column in columns
-            if column.endswith(
-                f'_{horizon}'
-            )
-        ]
+        horizon_columns = _get_horizon_columns(
+            columns,
+            horizon,
+        )
 
         if not horizon_columns:
             continue
@@ -1010,14 +1008,8 @@ def print_target_summary(
                 for value in values
             )
 
-            available_values += (
-                available
-            )
-
-            missing_values += (
-                len(values)
-                - available
-            )
+            available_values += available
+            missing_values += len(values) - available
 
         print(
             f'{horizon}: '
@@ -1028,7 +1020,6 @@ def print_target_summary(
 
     print()
 
-
 # ============================================================
 # SIMPLE BUILD TEST
 # ============================================================
@@ -1036,76 +1027,85 @@ def print_target_summary(
 if __name__ == '__main__':
 
     print()
-    print(
-        '========== TARGET BUILD TEST =========='
-    )
+    print('========== TARGET BUILD TEST ==========')
 
     dataset = build_target_dataset()
 
     if not dataset:
-
-        print(
-            'Target dataset is empty.'
-        )
+        print('Target dataset is empty.')
 
     else:
 
-        validate_target_dataset(
-            dataset
-        )
+        validate_target_dataset(dataset)
 
-        print(
-            f'Total rows: '
-            f'{len(dataset)}'
-        )
-
-        print(
-            f'Total columns: '
-            f'{len(dataset[0])}'
-        )
+        print(f'Total rows: {len(dataset)}')
+        print(f'Total columns: {len(dataset[0])}')
 
         print()
-        print(
-            'Date range:'
-        )
+        print('Date range:')
+        print(f"From: {dataset[0]['Date']}")
+        print(f"To:   {dataset[-1]['Date']}")
 
-        print(
-            f"From: "
-            f"{dataset[0]['Date']}"
-        )
+        print_target_summary(dataset)
 
-        print(
-            f"To:   "
-            f"{dataset[-1]['Date']}"
-        )
-
-        print_target_summary(
-            dataset
-        )
+        # ----------------------------------------------------
+        # Health target diagnostics
+        # ----------------------------------------------------
 
         print()
-        print(
-            '========== FIRST ROW =========='
-        )
+        print('========== HEALTH TARGET DIAGNOSTICS ==========')
+
+        health_columns = [
+            column
+            for column in dataset[0]
+            if (
+                column.startswith('Target_Health_')
+                or column.startswith('Target_High_Health_')
+                or column.startswith('Target_Low_Energy_')
+                or column.startswith('Target_Significant_Health_')
+            )
+        ]
+
+        for column in health_columns:
+
+            values = [
+                row.get(column)
+                for row in dataset
+            ]
+
+            available = sum(
+                value is not None
+                and value == value
+                for value in values
+            )
+
+            missing = len(values) - available
+
+            print(
+                f'{column}: '
+                f'available={available}, '
+                f'missing={missing}'
+            )
+
+        # ----------------------------------------------------
+        # First row
+        # ----------------------------------------------------
+
+        print()
+        print('========== FIRST ROW ==========')
 
         for key, value in dataset[0].items():
+            print(f'{key}: {value}')
 
-            print(
-                f'{key}: {value}'
-            )
+        # ----------------------------------------------------
+        # Last row
+        # ----------------------------------------------------
 
         print()
-        print(
-            '========== LAST ROW =========='
-        )
+        print('========== LAST ROW ==========')
 
         for key, value in dataset[-1].items():
-
-            print(
-                f'{key}: {value}'
-            )
+            print(f'{key}: {value}')
 
         print()
-        print(
-            '========== TARGET BUILD PASSED =========='
-        )
+        print('========== TARGET BUILD PASSED ==========')

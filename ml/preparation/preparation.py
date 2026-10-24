@@ -265,7 +265,8 @@ def prepare_health_records():
 
             'Energy_Level':
                 clean_numeric(
-                    record.get('Energy_Level')
+                    record.get('Energy_Level'),
+                    default=None
                 ),
 
             'Symptoms':
@@ -275,7 +276,8 @@ def prepare_health_records():
 
             'Severity':
                 clean_numeric(
-                    record.get('Severity')
+                    record.get('Severity'),
+                    default=None
                 ),
 
             'Treatment':
@@ -1792,6 +1794,11 @@ def build_daily_dataset():
         for row in days
     }
 
+    health_by_date_record = {
+        record['Date']: record
+        for record in health_records
+    }
+
     # -----------------------------------------------------
     # Build final dataset
     # -----------------------------------------------------
@@ -1844,6 +1851,49 @@ def build_daily_dataset():
             }
 
         row = dict(day)
+
+        health_record = health_by_date_record.get(
+            current_date
+        )
+
+        row.update({
+            'Health_Status': (
+                health_record['Health_Status']
+                if health_record is not None
+                else None
+            ),
+
+            'Health_Energy_Level': (
+                health_record['Energy_Level']
+                if health_record is not None
+                else None
+            ),
+
+            'Health_Symptoms': (
+                health_record['Symptoms']
+                if health_record is not None
+                else None
+            ),
+
+            'Health_Severity': (
+                health_record['Severity']
+                if health_record is not None
+                else None
+            ),
+
+            'Health_Treatment': (
+                health_record['Treatment']
+                if health_record is not None
+                else None
+            ),
+
+            'Health_Notes': (
+                health_record['Health_Notes']
+                if health_record is not None
+                else None
+            ),
+        }
+    )
 
         # -------------------------------------------------
         # Actual data

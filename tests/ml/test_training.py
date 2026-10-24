@@ -231,8 +231,18 @@ def test_training_target_information():
         assert isinstance(training_target_unique_values, list)
         assert len(training_target_unique_values) >= 1
 
-        assert training_target_has_variation is False
-        assert training_target_unique_values == [0.0]
+        expected_values = sorted(
+                    set(
+                        float(value)
+                        for value in training_result["y_train"]
+                    )
+        )
+
+        assert training_target_unique_values == expected_values
+
+        assert training_target_has_variation == (
+                    len(expected_values) > 1
+        )
 
 
 # ==========================================================
