@@ -1,0 +1,402 @@
+﻿from nicegui import ui
+
+from frontend.components import (
+    app_card,
+    metric_card,
+    section_title,
+    badge,
+    empty_chart,
+)
+
+
+# ==========================================================
+# DATA PAGE
+# ==========================================================
+
+def data_page():
+
+    with ui.column().classes(
+        'w-full '
+        'min-w-0 '
+        'gap-6'
+    ):
+
+        _page_header()
+
+        _overview_section()
+
+        _data_sources_section()
+
+        _data_quality_section()
+
+        _activity_section()
+
+
+# ==========================================================
+# PAGE HEADER
+# ==========================================================
+
+def _page_header():
+
+    with ui.row().classes(
+        'w-full '
+        'items-start '
+        'justify-between '
+        'gap-4 '
+        'flex-wrap'
+    ):
+
+        with ui.column().classes(
+            'gap-1 '
+            'min-w-0'
+        ):
+
+            ui.label(
+                'Data'
+            ).classes(
+                'text-2xl '
+                'md:text-3xl '
+                'font-bold '
+                'text-primary-app'
+            )
+
+            ui.label(
+                'Your personal data foundation for analysis and AI.'
+            ).classes(
+                'text-sm '
+                'text-secondary-app'
+            )
+
+        with ui.row().classes(
+            'items-center '
+            'gap-2 '
+            'flex-wrap'
+        ):
+
+            badge(
+                'Connected',
+                variant='success',
+                icon='database',
+            )
+
+            ui.button(
+                'Refresh',
+                icon='refresh',
+            ).props(
+                'unelevated no-caps'
+            ).classes(
+                'app-button'
+            )
+
+
+# ==========================================================
+# OVERVIEW
+# ==========================================================
+
+def _overview_section():
+
+    with ui.column().classes(
+        'w-full '
+        'gap-3'
+    ):
+
+        section_title(
+            'Data Overview',
+            'Current information available to the system',
+        )
+
+        with ui.element('div').classes(
+            'grid '
+            'grid-cols-1 '
+            'sm:grid-cols-2 '
+            'xl:grid-cols-4 '
+            'gap-4 '
+            'w-full'
+        ):
+
+            metric_card(
+                title='Total Records',
+                value='0',
+                subtitle='All recorded data',
+                icon='dataset',
+            )
+
+            metric_card(
+                title='Expenses',
+                value='0',
+                subtitle='Expense records',
+                icon='payments',
+            )
+
+            metric_card(
+                title='Income',
+                value='0',
+                subtitle='Income records',
+                icon='account_balance',
+            )
+
+            metric_card(
+                title='Last Update',
+                value='â€”',
+                subtitle='No data recorded yet',
+                icon='update',
+            )
+
+
+# ==========================================================
+# DATA SOURCES
+# ==========================================================
+
+def _data_sources_section():
+
+    with ui.column().classes(
+        'w-full '
+        'gap-3'
+    ):
+
+        section_title(
+            'Data Sources',
+            'Personal information available to the intelligence system',
+        )
+
+        with ui.element('div').classes(
+            'grid '
+            'grid-cols-1 '
+            'sm:grid-cols-2 '
+            'lg:grid-cols-3 '
+            'xl:grid-cols-4 '
+            'gap-4 '
+            'w-full'
+        ):
+
+            _source_card(
+                'Expenses',
+                'Financial spending records',
+                'payments',
+            )
+
+            _source_card(
+                'Income',
+                'Income and earnings records',
+                'account_balance',
+            )
+
+            _source_card(
+                'Days',
+                'Daily life and activity data',
+                'today',
+            )
+
+            _source_card(
+                'Events',
+                'Important events and context',
+                'event',
+            )
+
+            _source_card(
+                'Health',
+                'Health-related personal data',
+                'favorite',
+            )
+
+            _source_card(
+                'Sleep',
+                'Sleep and recovery information',
+                'bedtime',
+            )
+
+            _source_card(
+                'Budgets',
+                'Financial planning information',
+                'account_balance_wallet',
+            )
+
+            _source_card(
+                'Context',
+                'Additional personal context',
+                'psychology',
+            )
+
+
+# ==========================================================
+# SOURCE CARD
+# ==========================================================
+
+def _source_card(
+    title,
+    description,
+    icon,
+):
+
+    with ui.card().classes(
+        'app-card '
+        'w-full '
+        'min-w-0 '
+        'p-4'
+    ):
+
+        with ui.row().classes(
+            'w-full '
+            'items-center '
+            'gap-3'
+        ):
+
+            with ui.element('div').classes(
+                'app-icon '
+                'w-10 '
+                'h-10 '
+                'shrink-0'
+            ):
+
+                ui.icon(
+                    icon
+                ).classes(
+                    'text-xl'
+                )
+
+            with ui.column().classes(
+                'gap-0 '
+                'min-w-0 '
+                'flex-1'
+            ):
+
+                ui.label(
+                    title
+                ).classes(
+                    'text-sm '
+                    'font-semibold '
+                    'text-primary-app'
+                )
+
+                ui.label(
+                    description
+                ).classes(
+                    'text-xs '
+                    'text-secondary-app'
+                )
+
+        with ui.row().classes(
+            'w-full '
+            'items-center '
+            'justify-between '
+            'mt-4'
+        ):
+
+            ui.label(
+                'Records'
+            ).classes(
+                'text-xs '
+                'text-muted-app'
+            )
+
+            badge(
+                '0',
+                variant='neutral',
+            )
+
+
+# ==========================================================
+# DATA QUALITY
+# ==========================================================
+
+def _data_quality_section():
+
+    with app_card(
+        title='Data Quality',
+        subtitle='Readiness of the available data',
+        icon='verified',
+    ):
+
+        with ui.element('div').classes(
+            'grid '
+            'grid-cols-1 '
+            'sm:grid-cols-2 '
+            'lg:grid-cols-4 '
+            'gap-4 '
+            'w-full'
+        ):
+
+            _quality_item(
+                'Data Status',
+                'Waiting for data',
+                'neutral',
+            )
+
+            _quality_item(
+                'Completeness',
+                'â€”',
+                'neutral',
+            )
+
+            _quality_item(
+                'Consistency',
+                'â€”',
+                'neutral',
+            )
+
+            _quality_item(
+                'AI Readiness',
+                'Not ready',
+                'neutral',
+            )
+
+
+# ==========================================================
+# QUALITY ITEM
+# ==========================================================
+
+def _quality_item(
+    label,
+    value,
+    variant='neutral',
+):
+
+    with ui.column().classes(
+        'gap-1 '
+        'min-w-0'
+    ):
+
+        ui.label(
+            label
+        ).classes(
+            'text-xs '
+            'text-secondary-app'
+        )
+
+        badge(
+            value,
+            variant=variant,
+        )
+
+
+# ==========================================================
+# ACTIVITY
+# ==========================================================
+
+def _activity_section():
+
+    with ui.column().classes(
+        'w-full '
+        'gap-3'
+    ):
+
+        section_title(
+            'Data Activity',
+            'Recent changes and incoming information',
+        )
+
+        with app_card(
+            title='Recent Data',
+            subtitle='Latest records added to the system',
+            icon='history',
+        ):
+
+            empty_chart(
+                title='No data available',
+                message=(
+                    'Records will appear here automatically '
+                    'when real data is added to the database.'
+                ),
+                icon='database',
+                height='260px',
+            )
