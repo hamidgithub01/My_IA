@@ -18,32 +18,66 @@ from frontend.services.prediction_service import (
 
 def predictions_page():
 
-    data = load_predictions_page_data()
+    state = {"kind": "expenses"}
 
-    with ui.column().classes(
-        'w-full '
-        'min-w-0 '
-        'gap-6'
-    ):
+    options = {
+        "expenses": {
+            "target_name": "Target_Expense_Total_1D",
+            "value_key": "Predicted_Expense",
+            "label": "Expenses",
+            "unit": "expense",
+            "plural": "expenses",
+        },
+        "income": {
+            "target_name": "Target_Income_Total_1D",
+            "value_key": "Predicted_Income",
+            "label": "Income",
+            "unit": "income",
+            "plural": "income",
+        },
+    }
 
-        _page_header(data)
+    @ui.refreshable
+    def render_page():
 
-        _prediction_overview(data)
+        config = options[state["kind"]]
 
-        _forecast_section(data)
+        data = load_predictions_page_data(
+            target_name=config["target_name"],
+            value_key=config["value_key"],
+        )
 
-        _prediction_domains()
+        with ui.column().classes(
+            'w-full '
+            'min-w-0 '
+            'gap-6'
+        ):
 
-        _future_outlook()
+            _page_header(
+                data,
+                state,
+                options,
+                render_page.refresh,
+            )
 
-        _prediction_intelligence(data)
+            _prediction_overview(data, config)
+
+            _forecast_section(data, config)
+
+            _prediction_domains()
+
+            _future_outlook()
+
+            _prediction_intelligence(data)
+
+    render_page()
 
 
 # ==========================================================
 # PAGE HEADER
 # ==========================================================
 
-def _page_header(data):
+def _page_header(data, state, options, refresh_page):
 
     status = data.get('status')
 
@@ -82,6 +116,24 @@ def _page_header(data):
             'flex-wrap'
         ):
 
+            ui.select(
+                options={
+                    key: config['label']
+                    for key, config in options.items()
+                },
+                value=state['kind'],
+                label='Forecast type',
+                on_change=lambda event: _change_prediction_type(
+                    event.value,
+                    state,
+                    refresh_page,
+                ),
+            ).props(
+                'outlined dense options-dense'
+            ).classes(
+                'min-w-40'
+            )
+
             if status == 'valid':
                 badge(
                     'Prediction Ready',
@@ -98,6 +150,7 @@ def _page_header(data):
             ui.button(
                 'Refresh',
                 icon='refresh',
+                on_click=refresh_page,
             ).props(
                 'unelevated no-caps'
             ).classes(
@@ -105,11 +158,20 @@ def _page_header(data):
             )
 
 
+def _change_prediction_type(kind, state, refresh_page):
+
+    if kind not in ('expenses', 'income'):
+        return
+
+    state['kind'] = kind
+    refresh_page()
+
+
 # ==========================================================
 # PREDICTION OVERVIEW
 # ==========================================================
 
-def _prediction_overview(data):
+def _prediction_overview(data, config):
 
     summary = data.get(
         'summary',
@@ -166,21 +228,21 @@ def _prediction_overview(data):
             metric_card(
                 title='Predicted Total',
                 value=_money(total),
-                subtitle='Total predicted expenses',
+                subtitle=f'Total predicted {config["plural"]}',
                 icon='payments',
             )
 
             metric_card(
                 title='Daily Average',
                 value=_money(average),
-                subtitle='Average predicted expense',
+                subtitle=f'Average predicted {config["unit"]}',
                 icon='show_chart',
             )
 
             metric_card(
                 title='Highest Predicted Day',
                 value=_money(maximum),
-                subtitle='Maximum predicted expense',
+                subtitle=f'Maximum predicted {config["unit"]}',
                 icon='trending_up',
             )
 
@@ -189,7 +251,7 @@ def _prediction_overview(data):
 # FORECAST SECTION
 # ==========================================================
 
-def _forecast_section(data):
+def _forecast_section(data, config):
 
     forecast = data.get(
         'forecast',
@@ -230,7 +292,8 @@ def _forecast_section(data):
                 if forecast:
 
                     _forecast_timeline(
-                        forecast
+                        forecast,
+                        config,
                     )
 
                 else:
@@ -252,7 +315,8 @@ def _forecast_section(data):
             ):
 
                 _summary_block(
-                    summary
+                    summary,
+                    config,
                 )
 
 
@@ -262,6 +326,7 @@ def _forecast_section(data):
 
 def _forecast_timeline(
     forecast,
+    config,
 ):
 
     with ui.column().classes(
@@ -280,13 +345,15 @@ def _forecast_timeline(
             )
 
             value = row.get(
-                'Predicted_Expense'
+                config["value_key"],
+                0.0,
             )
 
             _forecast_row(
                 prediction_date,
                 value,
                 index,
+                config,
             )
 
 
@@ -298,6 +365,7 @@ def _forecast_row(
     prediction_date,
     value,
     index,
+    config,
 ):
 
     with ui.row().classes(
@@ -343,7 +411,7 @@ def _forecast_row(
             )
 
             ui.label(
-                'Predicted expense'
+                f'Predicted {config["unit"]}'
             ).classes(
                 'text-xs '
                 'text-muted-app'
@@ -364,6 +432,7 @@ def _forecast_row(
 
 def _summary_block(
     summary,
+    config,
 ):
 
     total = summary.get(
@@ -397,7 +466,7 @@ def _summary_block(
     ):
 
         _summary_item(
-            'Predicted total',
+            f'Predicted {config["plural"]} total',
             _money(total),
             'payments',
         )

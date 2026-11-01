@@ -1560,6 +1560,7 @@ def generate_expense_forecast(
     days=30,
     target_name=DEFAULT_TARGET_NAME,
     registry_dir=None,
+    value_key='Predicted_Expense',
 ):
     """
     Generate a multi-day expense forecast.
@@ -2025,7 +2026,7 @@ def generate_expense_forecast(
             'Date':
                 forecast_date,
 
-            'Predicted_Expense':
+            value_key:
                 prediction,
         })
 
@@ -2055,6 +2056,7 @@ def load_predictions_page_data(
     days=30,
     target_name=DEFAULT_TARGET_NAME,
     registry_dir=None,
+    value_key='Predicted_Expense',
 ):
     """
     Load all data required by the Predictions page.
@@ -2064,6 +2066,7 @@ def load_predictions_page_data(
         days=days,
         target_name=target_name,
         registry_dir=registry_dir,
+        value_key=value_key,
     )
 
     forecast = forecast_result.get(
@@ -2074,7 +2077,7 @@ def load_predictions_page_data(
     values = [
         float(
             row.get(
-                'Predicted_Expense',
+                value_key,
                 0.0,
             )
         )
