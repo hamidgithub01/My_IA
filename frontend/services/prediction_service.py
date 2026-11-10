@@ -2,9 +2,6 @@ import math
 
 from datetime import date, timedelta
 from ml.preparation.preparation import get_prepared_dataset
-from ml.preparation.preparation import (
-    get_prepared_dataset,
-)
 
 from ml.features.build import build_feature_row
 
@@ -14,6 +11,8 @@ from ml.models.registry import (
     REGISTRY_INVALID,
     get_active_model_version,
     load_active_model,
+    load_registered_model,
+    list_model_versions,
 )
 
 
@@ -843,6 +842,7 @@ def predict_from_registered_model(
     features,
     target_name=DEFAULT_TARGET_NAME,
     registry_dir=None,
+    model_version=None,
 ):
     """
     Generate a prediction using the active registered model.
@@ -870,10 +870,32 @@ def predict_from_registered_model(
         features
     )
 
-    model_info = load_active_registered_model(
-        target_name=target_name,
-        registry_dir=registry_dir,
-    )
+    if model_version is None:
+        model_info = load_active_registered_model(
+            target_name=target_name,
+            registry_dir=registry_dir,
+        )
+    else:
+        model_version = str(model_version).strip()
+        if model_version not in list_model_versions(target_name, registry_dir):
+            return {
+                'status': PREDICTION_MODEL_NOT_FOUND,
+                'target_name': target_name,
+                'version': model_version,
+                'prediction': None,
+                'error': 'Requested model version is not registered.',
+            }
+        loaded = load_registered_model(target_name, model_version, registry_dir)
+        model_info = {
+            'status': PREDICTION_VALID if loaded.get('status') == REGISTRY_VALID else PREDICTION_INVALID,
+            'target_name': target_name,
+            'version': model_version,
+            'model': loaded.get('model'),
+            'metadata': loaded.get('metadata'),
+            'model_path': loaded.get('model_path'),
+            'metadata_path': loaded.get('metadata_path'),
+            'error': loaded.get('error'),
+        }
 
     if model_info[
         'status'
@@ -1561,42 +1583,9 @@ def generate_expense_forecast(
     target_name=DEFAULT_TARGET_NAME,
     registry_dir=None,
     value_key='Predicted_Expense',
+    model_version=None,
 ):
-    """
-    Generate a multi-day expense forecast.
 
-    Uses the active registered model.
-
-    IMPORTANT:
-
-        Forecast features are built through the same feature
-        engineering pipeline used by the project.
-
-        For every forecast date:
-
-            target_row
-                  +
-            historical rows strictly before today
-                  ↓
-            build_feature_row()
-                  ↓
-            registered model
-                  ↓
-            prediction
-
-        The target day's actual outcomes are never passed
-        as prediction features.
-
-        Known future information such as Plans and Recurring
-        activity is taken from target_row.
-
-        Historical features, lag features and rolling
-        features are built only from historical rows.
-
-    The current day is NOT included in the historical rows
-    used for future inference because the current day may
-    still be in progress.
-    """
 
     if not isinstance(
         days,
@@ -1611,10 +1600,32 @@ def generate_expense_forecast(
     # Load active registered model.
     # ------------------------------------------------------
 
-    model_info = load_active_registered_model(
-        target_name=target_name,
-        registry_dir=registry_dir,
-    )
+    if model_version is None:
+        model_info = load_active_registered_model(
+            target_name=target_name,
+            registry_dir=registry_dir,
+        )
+    else:
+        model_version = str(model_version).strip()
+        if model_version not in list_model_versions(target_name, registry_dir):
+            return {
+                'status': PREDICTION_MODEL_NOT_FOUND,
+                'target_name': target_name,
+                'version': model_version,
+                'prediction': None,
+                'error': 'Requested model version is not registered.',
+            }
+        loaded = load_registered_model(target_name, model_version, registry_dir)
+        model_info = {
+            'status': PREDICTION_VALID if loaded.get('status') == REGISTRY_VALID else PREDICTION_INVALID,
+            'target_name': target_name,
+            'version': model_version,
+            'model': loaded.get('model'),
+            'metadata': loaded.get('metadata'),
+            'model_path': loaded.get('model_path'),
+            'metadata_path': loaded.get('metadata_path'),
+            'error': loaded.get('error'),
+        }
 
     if model_info[
         'status'
@@ -1702,13 +1713,6 @@ def generate_expense_forecast(
                 ),
         }
 
-    # ------------------------------------------------------
-    # Load the prepared daily dataset.
-    #
-    # This is essential because future Plans and Recurring
-    # information must reach the prediction pipeline.
-    # ------------------------------------------------------
-
     prepared_data = get_prepared_dataset()
 
     if prepared_data is None:
@@ -1757,11 +1761,6 @@ def generate_expense_forecast(
                     'version'
                 ),
         }
-
-    # ------------------------------------------------------
-    # Sort prepared data chronologically.
-    # ------------------------------------------------------
-
     prepared_data = sorted(
         prepared_data,
         key=lambda row: row.get(
@@ -1774,12 +1773,6 @@ def generate_expense_forecast(
         else date.min,
     )
 
-    # ------------------------------------------------------
-    # Build a direct date → prepared row lookup.
-    #
-    # This allows future forecast dates to receive their
-    # known Plans / Recurring information.
-    # ------------------------------------------------------
 
     rows_by_date = {}
 
@@ -1804,16 +1797,6 @@ def generate_expense_forecast(
             row_date
         ] = row
 
-    # ------------------------------------------------------
-    # Historical inference boundary.
-    #
-    # Only dates strictly before today are treated as
-    # historical observations.
-    #
-    # This prevents today's potentially incomplete actual
-    # outcomes from entering the historical feature set.
-    # ------------------------------------------------------
-
     today = date.today()
 
     historical_rows = [
@@ -1831,10 +1814,6 @@ def generate_expense_forecast(
         ) < today
     ]
 
-    # ------------------------------------------------------
-    # Ensure chronological ordering of historical rows.
-    # ------------------------------------------------------
-
     historical_rows = sorted(
         historical_rows,
         key=lambda row: row[
@@ -1843,10 +1822,6 @@ def generate_expense_forecast(
     )
 
     forecast = []
-
-    # ------------------------------------------------------
-    # Generate each future prediction.
-    # ------------------------------------------------------
 
     for offset in range(
         days
@@ -1858,16 +1833,6 @@ def generate_expense_forecast(
                 days=offset
             )
         )
-
-        # --------------------------------------------------
-        # Get the prepared row for this forecast date.
-        #
-        # If the preparation stage has no row for the date,
-        # create a minimal calendar row. build_feature_row()
-        # will then safely produce zero known-future values.
-        #
-        # This fallback does NOT fabricate historical data.
-        # --------------------------------------------------
 
         target_row = rows_by_date.get(
             forecast_date
@@ -1894,45 +1859,16 @@ def generate_expense_forecast(
                 'Date'
             ] = forecast_date
 
-        # --------------------------------------------------
-        # Build prediction features through the real feature
-        # engineering pipeline.
-        #
-        # build_feature_row() provides:
-        #
-        #     Temporal
-        #     Known Future
-        #     History
-        #     Lag
-        #     Rolling
-        #
-        # The actual target-day outcomes are not used by
-        # build_feature_row().
-        # --------------------------------------------------
-
         features = build_feature_row(
             target_row=target_row,
             previous_rows=historical_rows,
         )
 
-        # --------------------------------------------------
-        # The Date field identifies the forecast day but is
-        # not a model feature.
-        #
-        # get_feature_names() and training explicitly exclude
-        # Date, while the registered model schema contains
-        # only actual model features.
-        # --------------------------------------------------
 
         features.pop(
             'Date',
             None,
         )
-
-        # --------------------------------------------------
-        # Strictly verify that the feature engineering output
-        # matches the registered model schema.
-        # --------------------------------------------------
 
         try:
 
@@ -1966,14 +1902,12 @@ def generate_expense_forecast(
                     ),
             }
 
-        # --------------------------------------------------
-        # Generate the prediction.
-        # --------------------------------------------------
 
         result = predict_from_registered_model(
             features=features,
             target_name=target_name,
             registry_dir=registry_dir,
+            model_version=model_info.get('version'),
         )
 
         if result[
@@ -2005,14 +1939,6 @@ def generate_expense_forecast(
         prediction = result[
             'prediction'
         ]
-
-        # --------------------------------------------------
-        # Expense cannot be negative.
-        #
-        # A regression model may mathematically return a
-        # negative value even though an expense cannot be
-        # negative.
-        # --------------------------------------------------
 
         prediction = max(
             0.0,
@@ -2048,15 +1974,12 @@ def generate_expense_forecast(
     }
 
 
-# ==========================================================
-# PREDICTIONS PAGE DATA
-# ==========================================================
-
 def load_predictions_page_data(
     days=30,
     target_name=DEFAULT_TARGET_NAME,
     registry_dir=None,
     value_key='Predicted_Expense',
+    model_version=None,
 ):
     """
     Load all data required by the Predictions page.
@@ -2067,6 +1990,7 @@ def load_predictions_page_data(
         target_name=target_name,
         registry_dir=registry_dir,
         value_key=value_key,
+        model_version=model_version,
     )
 
     forecast = forecast_result.get(
@@ -2142,10 +2066,20 @@ def load_predictions_page_data(
             None,
     }
 
-    model_info = load_active_registered_model(
-        target_name=target_name,
-        registry_dir=registry_dir,
-    )
+    if model_version is None:
+        model_info = load_active_registered_model(
+            target_name=target_name,
+            registry_dir=registry_dir,
+        )
+    else:
+        loaded = load_registered_model(
+            target_name, forecast_result.get('version'), registry_dir
+        )
+        model_info = {
+            'status': PREDICTION_VALID if loaded.get('status') == REGISTRY_VALID else PREDICTION_INVALID,
+            'version': forecast_result.get('version'),
+            'metadata': loaded.get('metadata'),
+        }
 
     if model_info.get(
         'status'
@@ -2199,3 +2133,8 @@ def load_predictions_page_data(
                 'error'
             ),
     }
+
+def get_prediction_model_versions(target_name, registry_dir=None):
+    """Return registered versions and active version for a target."""
+    target_name = _validate_target_name(target_name)
+    return {'versions': list_model_versions(target_name, registry_dir), 'active_version': get_active_model_version(target_name, registry_dir)}

@@ -41,6 +41,25 @@ def _flatten_evaluation(result, sample_count):
     return flattened
 
 
+def _get_date_boundary(values, boundary):
+    """
+    Return a JSON-safe date boundary from evaluation dates.
+    """
+
+    if not values:
+        return None
+
+    try:
+        value = boundary(values)
+    except (TypeError, ValueError):
+        return None
+
+    if hasattr(value, 'isoformat'):
+        return value.isoformat()
+
+    return str(value)
+
+
 def _process_target(target_name):
     task = get_target_task(target_name)
     primary_metric, direction = _metric_policy(task)
@@ -110,14 +129,99 @@ def _process_target(target_name):
     candidate_version = _next_model_version(latest_version or current_version)
     base['candidate_model_version'] = candidate_version
     metadata = _build_candidate_metadata(training_result, candidate_version)
+    
+    evaluation_dates_training = candidate_evaluation.get(
+        'training_dates'
+    ) or []
+
+    evaluation_dates_testing = candidate_evaluation.get(
+        'testing_dates'
+    ) or []
+
     metadata.update({
         'primary_metric': primary_metric,
         'metric_direction': direction,
-        'evaluation_metrics': candidate_evaluation.get('metrics') or {},
-        'training_rows': training_result.get('training_rows', 0),
+
+        # Evaluation validity
+        'evaluation_status': candidate_evaluation.get(
+            'evaluation_status'
+        ),
+        'evaluation_valid': candidate_evaluation.get(
+            'evaluation_valid'
+        ),
+
+        # Evaluation metrics
+        'evaluation_metrics': candidate_evaluation.get(
+            'metrics'
+        ) or {},
+
+        # Dataset sizes
+        'training_rows': training_result.get(
+            'training_rows', 0
+        ),
         'test_rows': sample_count,
+        'actual_test_rows': candidate_evaluation.get(
+            'actual_test_rows'
+        ),
+
+        # Evaluation configuration
+        'test_ratio': candidate_evaluation.get(
+            'test_ratio'
+        ),
+        'min_test_rows': candidate_evaluation.get(
+            'min_test_rows'
+        ),
+
+        # Chronological evaluation
+        'chronological_evaluation': candidate_evaluation.get(
+            'chronological_evaluation'
+        ),
+        'chronological_boundary_valid': candidate_evaluation.get(
+            'chronological_boundary_valid'
+        ),
+
+        'training_date_start': _get_date_boundary(
+            evaluation_dates_training, min
+        ),
+        'training_date_end': _get_date_boundary(
+            evaluation_dates_training, max
+        ),
+        'testing_date_start': _get_date_boundary(
+            evaluation_dates_testing, min
+        ),
+        'testing_date_end': _get_date_boundary(
+            evaluation_dates_testing, max
+        ),
+
+        # Classification evidence
+        'training_classes': candidate_evaluation.get(
+            'training_classes'
+        ),
+        'training_class_count': candidate_evaluation.get(
+            'training_class_count'
+        ),
+        'classes': candidate_evaluation.get(
+            'classes'
+        ),
+        'class_count': candidate_evaluation.get(
+            'class_count'
+        ),
+        'classification_average': candidate_evaluation.get(
+            'average'
+        ),
+
+        # Regression evidence
+        'training_target_unique_count': candidate_evaluation.get(
+            'training_target_unique_count'
+        ),
+        'training_target_has_variation': candidate_evaluation.get(
+            'training_target_has_variation'
+        ),
+
+        # Version creation time
         'trained_at': datetime.now(timezone.utc).isoformat(),
     })
+
 
     result = execute_continuous_learning_cycle(
         current_result=current_result,

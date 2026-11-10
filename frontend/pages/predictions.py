@@ -9,8 +9,8 @@ from frontend.components import (
 
 from frontend.services.prediction_service import (
     load_predictions_page_data,
+    get_prediction_model_versions,
 )
-
 
 # ==========================================================
 # PREDICTIONS PAGE
@@ -18,7 +18,11 @@ from frontend.services.prediction_service import (
 
 def predictions_page():
 
-    state = {"kind": "expenses"}
+    state = {
+        "kind": "expenses",
+        "model_version": None,
+        "compare_version": None,
+    }
 
     options = {
         "expenses": {
@@ -37,32 +41,64 @@ def predictions_page():
         },
     }
 
+    _add_predictions_styles()
+
     @ui.refreshable
     def render_page():
 
         config = options[state["kind"]]
 
+        model_versions = get_prediction_model_versions(
+            config["target_name"]
+        )
+
+        selected_version = state["model_version"]
+        compare_version = state["compare_version"]
+
+        if compare_version and compare_version == (selected_version or model_versions.get("active_version")):
+            compare_version = None
+            state["compare_version"] = None
+
         data = load_predictions_page_data(
             target_name=config["target_name"],
             value_key=config["value_key"],
+            model_version=selected_version,
         )
 
+        comparison_data = None
+        if compare_version:
+            comparison_data = load_predictions_page_data(
+                target_name=config["target_name"],
+                value_key=config["value_key"],
+                model_version=compare_version,
+            )
+
         with ui.column().classes(
-            'w-full '
-            'min-w-0 '
-            'gap-6'
+            'predictions-page w-full min-w-0 gap-6'
         ):
 
             _page_header(
                 data,
                 state,
                 options,
+                model_versions,
                 render_page.refresh,
             )
+
+            _quality_notice(data)
 
             _prediction_overview(data, config)
 
             _forecast_section(data, config)
+
+            if compare_version:
+                _version_comparison(
+                    data,
+                    comparison_data,
+                    config,
+                    primary_version=data.get("model", {}).get("version"),
+                    compare_version=compare_version,
+                )
 
             _prediction_domains()
 
@@ -77,16 +113,12 @@ def predictions_page():
 # PAGE HEADER
 # ==========================================================
 
-def _page_header(data, state, options, refresh_page):
+def _page_header(data, state, options, model_versions, refresh_page):
 
     status = data.get('status')
 
     with ui.row().classes(
-        'w-full '
-        'items-start '
-        'justify-between '
-        'gap-4 '
-        'flex-wrap'
+        'predictions-hero w-full items-start justify-between gap-4 flex-wrap'
     ):
 
         with ui.column().classes(
@@ -97,17 +129,13 @@ def _page_header(data, state, options, refresh_page):
             ui.label(
                 'Predictions'
             ).classes(
-                'text-2xl '
-                'md:text-3xl '
-                'font-bold '
-                'text-primary-app'
+                'text-2xl md:text-3xl font-extrabold text-white tracking-tight'
             )
 
             ui.label(
                 'A forward-looking view of your finances, behavior, routines, and personal life.'
             ).classes(
-                'text-sm '
-                'text-secondary-app'
+                'text-sm text-blue-50/90 max-w-2xl leading-6'
             )
 
         with ui.row().classes(
@@ -129,10 +157,38 @@ def _page_header(data, state, options, refresh_page):
                     refresh_page,
                 ),
             ).props(
-                'outlined dense options-dense'
+                'outlined dense options-dense dark'
             ).classes(
-                'min-w-40'
+                'min-w-40 predictions-control'
             )
+
+            version_options = {'': 'Active version (default)'}
+            for version in reversed(model_versions.get('versions', [])):
+                active = version == model_versions.get('active_version')
+                version_options[version] = f"{version}{' · ACTIVE' if active else ''}"
+            ui.select(
+                options=version_options,
+                value=state.get('model_version') or '',
+                label='Model version',
+                on_change=lambda event: _change_model_version(
+                    event.value, state, refresh_page
+                ),
+            ).props('outlined dense options-dense dark').classes('min-w-52 predictions-control')
+
+            compare_options = {
+                version: version
+                for version in reversed(model_versions.get('versions', []))
+                if version != (state.get('model_version') or model_versions.get('active_version'))
+            }
+            if compare_options:
+                ui.select(
+                    options=compare_options,
+                    value=state.get('compare_version'),
+                    label='Compare with',
+                    on_change=lambda event: _change_compare_version(
+                        event.value, state, refresh_page
+                    ),
+                ).props('outlined dense options-dense clearable dark').classes('min-w-40 predictions-control')
 
             if status == 'valid':
                 badge(
@@ -154,7 +210,7 @@ def _page_header(data, state, options, refresh_page):
             ).props(
                 'unelevated no-caps'
             ).classes(
-                'app-button'
+                'predictions-refresh'
             )
 
 
@@ -164,7 +220,218 @@ def _change_prediction_type(kind, state, refresh_page):
         return
 
     state['kind'] = kind
+    state['model_version'] = None
+    state['compare_version'] = None
     refresh_page()
+
+
+def _change_model_version(version, state, refresh_page):
+    state['model_version'] = version or None
+
+    selected_primary = state['model_version']
+    if selected_primary is None:
+        # None means the active version; the active version is resolved on refresh.
+        state['compare_version'] = None
+
+    refresh_page()
+
+
+def _change_compare_version(version, state, refresh_page):
+    state['compare_version'] = version or None
+    refresh_page()
+
+
+# ==========================================================
+# VERSION COMPARISON
+# ==========================================================
+
+def _version_comparison(primary_data, compare_data, config, primary_version, compare_version):
+    with ui.column().classes('w-full gap-3'):
+        section_title(
+            'Model Version Comparison',
+            'Side-by-side comparison of forecasts generated by two registered versions. Differences are not accuracy scores.',
+            icon='compare_arrows',
+        )
+
+        if not compare_data or compare_data.get('status') != 'valid':
+            ui.label(
+                'The comparison version could not generate a valid forecast.'
+            ).classes('text-sm text-warning')
+            if compare_data and compare_data.get('error'):
+                ui.label(str(compare_data['error'])).classes('text-xs text-secondary-app')
+            return
+
+        primary_forecast = primary_data.get('forecast') or []
+        compare_forecast = compare_data.get('forecast') or []
+        value_key = config['value_key']
+
+        primary_by_date = {
+            str(row.get('Date')): float(row.get(value_key) or 0)
+            for row in primary_forecast if row.get('Date') is not None
+        }
+        compare_by_date = {
+            str(row.get('Date')): float(row.get(value_key) or 0)
+            for row in compare_forecast if row.get('Date') is not None
+        }
+        common_dates = sorted(set(primary_by_date) & set(compare_by_date))
+
+        primary_total = sum(primary_by_date[d] for d in common_dates)
+        compare_total = sum(compare_by_date[d] for d in common_dates)
+        difference = primary_total - compare_total
+
+        with ui.element('div').classes('grid grid-cols-1 md:grid-cols-3 gap-3 w-full'):
+            metric_card(
+                title=f'{primary_version or "Selected version"} total',
+                value=_money(primary_total),
+                subtitle=f'{len(common_dates)} matching forecast days',
+                icon='model_training',
+            )
+            metric_card(
+                title=f'{compare_version} total',
+                value=_money(compare_total),
+                subtitle=f'{len(common_dates)} matching forecast days',
+                icon='compare',
+            )
+            metric_card(
+                title='Difference (first − second)',
+                value=_money(difference),
+                subtitle='Positive means the first version predicts more',
+                icon='difference',
+            )
+
+        if not common_dates:
+            ui.label(
+                'The two versions have no matching forecast dates, so a day-by-day comparison is unavailable.'
+            ).classes('text-sm text-secondary-app')
+            return
+
+        with app_card(
+            title='Daily Forecast Differences',
+            subtitle='Values are compared only on dates present in both forecasts.',
+            icon='table_chart',
+        ):
+            with ui.column().classes('w-full gap-2'):
+                with ui.row().classes('w-full items-center gap-2 font-semibold text-xs text-secondary-app'):
+                    ui.label('Date').classes('flex-1')
+                    ui.label(str(primary_version or 'Selected')).classes('w-28 text-right')
+                    ui.label(str(compare_version)).classes('w-28 text-right')
+                    ui.label('Difference').classes('w-28 text-right')
+                for date in common_dates:
+                    first = primary_by_date[date]
+                    second = compare_by_date[date]
+                    with ui.row().classes('w-full items-center gap-2 py-2 border-b border-gray-100'):
+                        ui.label(date).classes('flex-1 text-xs text-primary-app')
+                        ui.label(_money(first)).classes('w-28 text-right text-xs')
+                        ui.label(_money(second)).classes('w-28 text-right text-xs')
+                        ui.label(_money(first - second)).classes('w-28 text-right text-xs font-semibold')
+
+
+# ==========================================================
+# VISUAL THEME AND QUALITY NOTICE
+# ==========================================================
+
+def _add_predictions_styles():
+    ui.add_head_html('''
+    <style>
+      .predictions-page { color: #172554; }
+      .predictions-hero {
+        padding: 28px 30px; border-radius: 24px;
+        background: linear-gradient(120deg, #123b78 0%, #2563eb 52%, #7c3aed 100%);
+        box-shadow: 0 16px 38px rgba(37, 99, 235, .20);
+        color: white; position: relative; overflow: hidden;
+      }
+      .predictions-hero:after {
+        content: ''; position: absolute; width: 250px; height: 250px;
+        right: -65px; top: -135px; border-radius: 50%;
+        background: rgba(255,255,255,.10); pointer-events: none;
+      }
+      .predictions-hero > * { position: relative; z-index: 1; }
+      .predictions-control .q-field__control {
+        background: rgba(255,255,255,.96); border-radius: 12px;
+      }
+      /* The controls have white surfaces inside a dark Quasar context.
+         Force a dark foreground so selected values remain visible. */
+      .predictions-control,
+      .predictions-control .q-field__native,
+      .predictions-control .q-field__input,
+      .predictions-control .q-field__native span,
+      .predictions-control .q-field__label,
+      .predictions-control .q-field__marginal,
+      .predictions-control .q-icon {
+        color: #1e293b !important;
+      }
+      .predictions-control input,
+      .predictions-control .q-field__native input {
+        color: #1e293b !important;
+        -webkit-text-fill-color: #1e293b !important;
+      }
+      .predictions-refresh {
+        background: #fff !important; color: #1d4ed8 !important;
+        border-radius: 12px !important; font-weight: 700 !important;
+        min-height: 40px;
+      }
+      .predictions-quality {
+        border: 1px solid #bfdbfe; border-left: 5px solid #3b82f6;
+        background: linear-gradient(110deg,#eff6ff,#f5f3ff);
+        border-radius: 18px; padding: 17px 20px;
+        box-shadow: 0 8px 22px rgba(59,130,246,.07);
+      }
+      .predictions-page .app-card,
+      .predictions-page .q-card {
+        border-radius: 18px !important;
+        border: 1px solid #e2e8f0 !important;
+        box-shadow: 0 8px 24px rgba(15,23,42,.055) !important;
+      }
+      .predictions-page .metric-card {
+        border-radius: 18px !important;
+        border: 1px solid #dbeafe !important;
+        background: linear-gradient(145deg,#ffffff,#eff6ff) !important;
+        box-shadow: 0 8px 22px rgba(37,99,235,.08) !important;
+      }
+      .predictions-page .section-title,
+      .predictions-page h2 { letter-spacing: -.02em; }
+      .predictions-page .forecast-highlight {
+        background: linear-gradient(135deg,#ecfeff,#eff6ff);
+        border: 1px solid #bae6fd; border-radius: 14px;
+      }
+      .predictions-page .prediction-row:hover {
+        background: #f1f5ff; border-radius: 12px;
+      }
+      @media (max-width: 640px) {
+        .predictions-hero { padding: 21px 18px; border-radius: 18px; }
+      }
+    </style>
+    ''')
+
+def _quality_notice(data):
+    status = data.get('status')
+    model = data.get('model') or {}
+    version = model.get('version') or 'selected model'
+
+    if status != 'valid':
+        title = 'Forecast unavailable'
+        message = (
+            'The selected model did not produce a usable forecast. '
+            'This is a data or prediction-availability status, not a quality score.'
+        )
+        icon_name = 'info'
+    else:
+        title = 'Model quality: not evaluated yet'
+        message = (
+            f'{version} generated a forecast, but its historical predictive quality '
+            'has not yet been established here. A reliable quality label requires '
+            'comparing past predictions with actual outcomes using suitable metrics '
+            'and enough test observations.'
+        )
+        icon_name = 'analytics'
+
+    with ui.row().classes('predictions-quality w-full items-start gap-3 no-wrap'):
+        ui.icon(icon_name).classes('text-2xl text-blue-600 mt-1')
+        with ui.column().classes('gap-1 min-w-0'):
+            ui.label(title).classes('text-sm font-bold text-blue-950')
+            ui.label(message).classes('text-sm leading-6 text-blue-900')
+            ui.label('Blue = insufficient evaluation evidence · Green / yellow / red will be based on measured historical performance.')\
+                .classes('text-xs font-medium text-blue-700')
 
 
 # ==========================================================
@@ -373,8 +640,7 @@ def _forecast_row(
         'items-center '
         'gap-3 '
         'py-2.5 '
-        'border-b '
-        'border-gray-100'
+        'border-b border-blue-50 prediction-row transition-colors'
     ):
 
         with ui.element('div').classes(
